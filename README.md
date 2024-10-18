@@ -55,3 +55,11 @@ VASP is a proprietary software and requires a valid license to use. Ensure that 
    ```bash
    git clone https://github.com/your_username/MasterThermoWorkChain.git
    cd MasterThermoWorkChain
+
+2. **Set Up a Python Virtual Environment (Optional but Recommended)**
+
+  ```bash
+python3 -m venv aiida_env
+source aiida_env/bin/activate
+
+3. 
