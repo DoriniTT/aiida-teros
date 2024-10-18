@@ -194,27 +194,37 @@ incar_parameters_slabs = {'incar': {
     - surface_free_energies.pdf: Surface free energy vs. oxygen chemical potential.
 
     - surface_phase_diagram.pdf: Surface phase diagram showing the most stable terminations.
- 
-## Output explanation
 
-    The workflow outputs several important results:
+## Output Explanation
 
-- **Relaxed Structures**
+The **MasterThermoWorkChain** generates several key outputs organized into categories. These outputs include relaxed structures and associated data, essential for further thermodynamic analysis. Below is an overview:
 
-    The relaxed bulk and slab structures are stored as AiiDA StructureData nodes, accessible via the AiiDA database.
+### 1. Bulk Relaxation:
+   Outputs from the relaxation of the bulk structure:
+   - **structure**: The relaxed bulk structure.
+   - **misc**: Miscellaneous information related to the relaxation.
+   - **remote_folder**: Directory where the calculations were performed.
+   - **retrieved**: Retrieved output files from the calculations.
 
-- **Most Stable Surface Terminations**
+### 2. Slab Relaxations:
+   Multiple symmetric slab terminations are generated and relaxed. The number of slabs depends on the specific material. For each slab (e.g., `ST_1`, `ST_2`, ...), the outputs are:
+   - **structure**
+   - **misc**
+   - **remote_folder**
+   - **retrieved**
 
-    The workflow identifies the most stable surface terminations at specified oxygen chemical potentials (e.g., Δμ_O = 0 eV and -2 eV).
+### 3. Stable Structures:
+   The work chain identifies the most thermodynamically stable surface terminations. Each stable structure (e.g., `relax_slab_1`, `relax_slab_2`, ...), includes the same set of outputs:
+   - **structure**
+   - **misc**
+   - **remote_folder**
+   - **retrieved**
 
-- **Surface Gibbs Free Energies (γ)**
+### Common Output Descriptions:
+For all the categories above, the outputs are stored in consistent AiiDA node types:
+- **structure** (`StructureData`): The relaxed structure (bulk or slab).
+- **misc** (`Dict`): Additional data and metadata from the relaxation process.
+- **remote_folder** (`RemoteData`): The directory on the remote computer where calculations were performed.
+- **retrieved** (`FolderData`): The files retrieved from the remote calculation, including output data necessary for analysis.
 
-    Calculated as a function of oxygen chemical potential, providing insight into surface stability under different conditions.
-
-- **Surface Phase Diagram**
-
-    A phase diagram illustrating the most stable surface terminations across a range of chemical potentials for both silver and oxygen.
-
-- **Plots**
-
-    Visual representations of the thermodynamic analysis, saved as PDF files for easy interpretation.
+These outputs provide all the essential information required for further thermodynamic analyses, such as calculating surface Gibbs free energies and constructing phase diagrams. The consistent structure of the outputs ensures that they can be easily accessed and processed, regardless of the specific material or the number of slabs generated.
