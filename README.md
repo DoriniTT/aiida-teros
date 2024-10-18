@@ -207,18 +207,29 @@ The **MasterThermoWorkChain** generates several key outputs organized into categ
    - **retrieved**: Retrieved output files from the calculations.
 
 ### 2. Slab Relaxations:
-   Multiple symmetric slab terminations are generated and relaxed. The number of slabs depends on the specific material. For each slab (e.g., `ST_1`, `ST_2`, ...), the outputs are:
-   - **structure**
-   - **misc**
-   - **remote_folder**
-   - **retrieved**
+
+Multiple symmetric slab terminations are generated from the bulk structure based on the specified Miller indices. These slabs represent different possible surface configurations of the material. Each slab is then relaxed to find its minimum energy configuration. The number of slabs (`ST_1`, `ST_2`, ...) depends on the material's symmetry and the possible terminations.
+
+For each slab termination, the outputs include:
+
+- **structure** (`StructureData`): The relaxed slab structure, containing the atomic positions and cell parameters after relaxation.
+- **misc** (`Dict`): Additional information from the relaxation process, such as total energies, forces, stress tensors, and convergence details.
+- **remote_folder** (`RemoteData`): The directory on the remote computer where the calculation was performed, useful for accessing raw data if needed.
+- **retrieved** (`FolderData`): The files retrieved from the calculation, including output logs, charge densities, and other relevant data.
+
+These outputs allow you to analyze the relaxed structures of different slab terminations and compare their properties.
 
 ### 3. Stable Structures:
-   The work chain identifies the most thermodynamically stable surface terminations. Each stable structure (e.g., `relax_slab_1`, `relax_slab_2`, ...), includes the same set of outputs:
-   - **structure**
-   - **misc**
-   - **remote_folder**
-   - **retrieved**
+
+After relaxing all slab terminations, the work chain identifies the most thermodynamically stable surface terminations based on calculated surface energies. These stable structures are critical for understanding surface phenomena and predicting material behavior under various conditions.
+
+For each identified stable slab (`relax_slab_1`, `relax_slab_2`, ...), the outputs are:
+
+- **structure** (`StructureData`): The relaxed stable slab structure, representing the most energetically favorable configuration.
+- **misc** (`Dict`): Detailed information from the relaxation and analysis, including surface energy calculations and relevant thermodynamic quantities.
+- **remote_folder** (`RemoteData`): The directory where the stable slab calculations were performed.
+- **retrieved** (`FolderData`): Retrieved files from the calculation, which may include data specific to surface thermodynamics analysis.
+
 
 ### Common Output Descriptions:
 For all the categories above, the outputs are stored in consistent AiiDA node types:
