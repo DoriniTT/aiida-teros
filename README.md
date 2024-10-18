@@ -1,22 +1,36 @@
-# AiiDA-AIAT: Automating Surface Thermodynamics with AiiDA and VASP
+# AiiDA-TEROS: Automating Surface Thermodynamics with AiiDA and VASP
 
 ## Introduction
 
-Welcome to the **AiiDA-AIAT** repository! This project offers a comprehensive and fully automated workflow for studying surface thermodynamics of materials using [AiiDA](https://www.aiida.net/) and [VASP](https://www.vasp.at/). Designed to minimize manual intervention, AiiDA-AIAT streamlines the entire process—from pre-processing and calculations to post-processing—enabling researchers to focus on analysis and interpretation.
+Welcome to the **AiiDA-TEROS** repository!
+
+**TEROS** stands for **Thermodynamics of Oxide Surfaces**, and this project is dedicated to automating the study of surface thermodynamics for oxide materials using the powerful combination of [AiiDA](https://www.aiida.net/) and [VASP](https://www.vasp.at/).
+
+Understanding the thermodynamic properties of oxide surfaces is crucial in fields such as catalysis, corrosion science, and materials engineering. Oxide surfaces often exhibit complex behaviors due to their interactions with the environment, especially in the presence of oxygen and under varying temperature and pressure conditions. Traditional computational studies of these systems can be time-consuming and labor-intensive, requiring significant manual setup and data handling.
+
+**AiiDA-TEROS** addresses these challenges by providing a comprehensive and fully automated workflow that streamlines the entire process—from pre-processing and calculations to post-processing and analysis. By leveraging AiiDA's workflow management capabilities and VASP's robust computational engine, researchers can focus on interpreting results rather than managing computational tasks.
+
+### Why Use AiiDA-TEROS?
+
+- **Efficiency**: Automate repetitive and complex tasks involved in surface thermodynamics calculations, saving time and reducing the possibility of human error.
+- **Scalability**: Easily extend the workflow to study various oxide materials, including ternary oxides, and explore multiple surface orientations and terminations.
+- **Reproducibility**: Ensure consistent computational procedures, which is essential for validating results and comparing studies across different systems.
+- **Customization**: Tailor calculation parameters to fit specific research needs while maintaining the integrity of the automated workflow.
 
 ### Key Features
 
-- **Automated Surface Generation**: Generate symmetric surface terminations from any given bulk structure and crystallographic orientation.
-- **Efficient Relaxation Calculations**: Perform relaxation calculations on all generated slabs using VASP with ease.
-- **Surface Thermodynamics Analysis**: Compute surface Gibbs free energies and construct surface phase diagrams using _ab initio_ atomistic thermodynamics.
-- **Stable Surface Identification**: Automatically identify and output the most thermodynamically stable surface terminations based on comprehensive analysis.
+- **Automated Surface Generation**: Generate symmetric surface terminations from any given bulk structure and crystallographic orientation without manual intervention.
+- **Efficient Relaxation Calculations**: Perform relaxation calculations on all generated slabs using VASP with predefined settings, ensuring consistency and accuracy.
+- **Surface Thermodynamics Analysis**: Compute surface Gibbs free energies and construct surface phase diagrams using _ab initio_ atomistic thermodynamics methods.
+- **Stable Surface Identification**: Automatically identify and output the most thermodynamically stable surface terminations based on comprehensive energy analyses.
+- **Integration with AiiDA**: Utilize AiiDA's powerful data management and workflow automation features to keep track of computations and results seamlessly.
+- **Extensive Documentation**: Benefit from detailed documentation and examples that guide you through setting up and running the workflow for your specific materials.
 
-If you're aiming to understand and predict the stability of material surfaces under varying environmental conditions, this tool can significantly accelerate your workflow.
+By automating these complex tasks, **AiiDA-TEROS** accelerates the research process, enabling you to explore new materials and surface phenomena more efficiently. Whether you are investigating catalytic surfaces, studying corrosion resistance, or designing novel materials, this tool provides a robust foundation for your computational thermodynamics studies.
 
 ---
 
-This README will guide you through the prerequisites, installation, and usage of AiiDA-AIAT. Let's get started!
-
+This README will guide you through the prerequisites, installation, and usage of AiiDA-TEROS. Let's get started!
 
 ---
 
