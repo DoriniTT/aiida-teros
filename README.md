@@ -119,7 +119,7 @@ incar_parameters_slabs = {'incar': {
 ```
 
 - **Set Workflow inputs**
-- 
+
 In submit_workchain.py, configure the inputs for the workflow, such as:
 
 - **Force Cutoff**: Convergence criterion for forces.
