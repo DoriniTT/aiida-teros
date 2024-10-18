@@ -1,13 +1,22 @@
-# AiiDA-AIAT: Automated Surface Thermodynamics with AiiDA-VASP
+# AiiDA-AIAT: Automating Surface Thermodynamics with AiiDA and VASP
 
-Welcome to the AiiDA-AIAT repository! This project provides a comprehensive workflow for automating surface thermodynamics calculations using AiiDA and VASP. It allows users to:
+## Introduction
 
-- Generate symmetric surface terminations from a given bulk structure and orientation.
-- Perform relaxation calculations on all generated slabs using VASP.
-- Compute surface Gibbs free energies and construct surface phase diagrams using ab initio atomistic thermodynamics.
-- Identify and output the most stable surface terminations based on thermodynamic analysis.
+Welcome to the **AiiDA-AIAT** repository! This project offers a comprehensive and fully automated workflow for studying surface thermodynamics of materials using [AiiDA](https://www.aiida.net/) and [VASP](https://www.vasp.at/). Designed to minimize manual intervention, AiiDA-AIAT streamlines the entire process—from pre-processing and calculations to post-processing—enabling researchers to focus on analysis and interpretation.
 
-This README will guide you through the prerequisites, installation, and usage of the AiiDA-AIAT.
+### Key Features
+
+- **Automated Surface Generation**: Generate symmetric surface terminations from any given bulk structure and crystallographic orientation.
+- **Efficient Relaxation Calculations**: Perform relaxation calculations on all generated slabs using VASP with ease.
+- **Surface Thermodynamics Analysis**: Compute surface Gibbs free energies and construct surface phase diagrams using _ab initio_ atomistic thermodynamics.
+- **Stable Surface Identification**: Automatically identify and output the most thermodynamically stable surface terminations based on comprehensive analysis.
+
+If you're aiming to understand and predict the stability of material surfaces under varying environmental conditions, this tool can significantly accelerate your workflow.
+
+---
+
+This README will guide you through the prerequisites, installation, and usage of AiiDA-AIAT. Let's get started!
+
 
 ---
 
@@ -21,10 +30,6 @@ This README will guide you through the prerequisites, installation, and usage of
   - [3. Running the WorkChain](#3-running-the-workchain)
   - [4. Monitoring and Retrieving Results](#4-monitoring-and-retrieving-results)
 - [Output Explanation](#output-explanation)
-- [Examples](#examples)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
 
 ---
 
