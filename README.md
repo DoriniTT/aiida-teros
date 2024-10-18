@@ -55,7 +55,7 @@ VASP is a proprietary software and requires a valid license to use. Ensure that 
    ```bash
    git clone https://github.com/your_username/MasterThermoWorkChain.git
    cd MasterThermoWorkChain
-
+   ```
 2. **Set Up a Python Virtual Environment (Optional but Recommended)**
 
 It is recommended to set up a Python virtual environment to keep your dependencies isolated and avoid conflicts with other Python projects. You can create and activate a virtual environment by running the following commands:
@@ -63,19 +63,19 @@ It is recommended to set up a Python virtual environment to keep your dependenci
   ```bash
   python3 -m venv aiida_env
   source aiida_env/bin/activate
-
+  ```
 3. **Install Python Dependencies**
 
 After setting up the virtual environment, install the necessary Python packages by running:
 
   ```bash
   pip install -r requirements.txt
-
+  ```
 This will install all required packages, as listed in the requirements.txt file. If a requirements.txt file is not provided, you may need to install the required packages manually:
 
   ```bash
   pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint
-
+  ```
 4. **Set Up AiiDA Profile**
 
 Make sure you have an AiiDA profile set up and that you can run AiiDA commands. Refer to the AiiDA documentation for guidance on setting up and configuring your AiiDA profile.
@@ -84,3 +84,4 @@ To create a new AiiDA profile, you can use the following command and follow the 
 
   ```bash
   verdi setup
+  ```
