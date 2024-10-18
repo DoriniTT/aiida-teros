@@ -82,6 +82,15 @@ After setting up the virtual environment, install the necessary Python packages 
 Ensure that your computer is properly configured for using AiiDA and AiiDA-VASP. Please refer to the official [AiiDA](https://aiida.readthedocs.io/) and [AiiDA-VASP documentation](https://aiida-vasp.readthedocs.io/) for configuration instructions.
 This repository does **not** include instructions for configuring AiiDA or AiiDA-VASP.
 
+5. **Update PYTHONPATH**
+
+You need to add the path to `AiiDA_complete_thermo.py` in your PYTHONPATH. You can do this by running the following command in your terminal:
+
+```bash
+export PYTHONPATH=$PYTHONPATH:/path/to/your/repo
+```
+Replace /path/to/your/repo with the actual path to the directory containing AiiDA_complete_thermo.py.
+
 ## Usage
 
 The AiiDA-AIAT consists of two main scripts:
