@@ -129,36 +129,43 @@ incar_parameters_slabs = {'incar': {
 
 - **Set Workflow inputs**
 
-In submit_workchain.py, configure the inputs for the workflow, such as:
+    In submit_workchain.py, configure the inputs for the workflow, such as:
 
 - **Force Cutoff**: Convergence criterion for forces.
 
-- **K-Points Precision**: Density for k-points mesh generation.
+- **K-Points Precision**: The k-points mesh is automatically set using the `set_kpoints_mesh_from_density` method from AiiDA, ensuring an appropriate density of k-points for accurate Brillouin zone sampling based on the structure's size and geometry.
 
-- **Potential Mapping and Family**: Define the potentials to use.
+- **Potential Mapping and Family**: The potential family and mapping are set using an auxiliary function that defines the correct potentials for the calculation. For example, to use the 'PBE' family and map potentials for silver (Ag) and oxygen (O), you would configure it as follows in the code:
 
-- **Slab Generation Parameters**: Miller indices, slab thickness, vacuum spacing.
+   ```python
+   # Set potential family and mapping
+   builder.potential_family = Str('PBE')  # Using the PBE potential family
+   builder.potential_mapping = {'Ag': 'Ag', 'O': 'O'}  # Map potentials for Ag and O elements
 
-- **Thermodynamic Parameters**: Heat of formation, total energies of elements/molecules.
+- **Slab Generation Parameters**: Set the Miller indices, slab thickness, and vacuum spacing to define the slab’s orientation, size, and separation between periodic images.
+
+- **Thermodynamic Parameters**: The heat of formation must be calculated in advance or taken from experimental or theoretical sources and provided in eV (not eV/atom). Additionally, you need the total energies of the reference elements for the structure of interest. For example, if studying Ag₂MoO₄, you must have pre-calculated the total energies of the stable reference states: Ag (FCC), Mo (BCC), and O₂ (molecule). In future updates, we plan to automate this process within the code.
+
+- **Minimal Bulk Composition**: Some primitive bulk structures may not have the minimal stoichiometry. In such cases, you need to use the `divide_to_get_minimal_bulk_composition` input to obtain the minimal composition. For example, if the primitive bulk structure of Ag₂MoO₄ has the stoichiometry Ag₄Mo₂O₈, you would set `divide_to_get_minimal_bulk_composition = 2` to correctly reduce the composition to Ag₂MoO₄.
 
 2. **Running the WorkChain**
-Execute the submission script:
+    Execute the submission script:
 
-```bash
-python submit_workchain.py
-```
+    ```bash
+    python submit_workchain.py
+    ```
 
-This script performs the following actions:
-
-- Starts and restarts the AiiDA daemon to ensure it's running.
-
-- Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
-
-- Sets up all the necessary inputs for the AiiDA-AIAT.
-
-- Submits the work chain to the AiiDA daemon for execution.
-
-- Writes the process ID (PK) to pks.txt for future reference.
+    This script performs the following actions:
+    
+    - Starts and restarts the AiiDA daemon to ensure it's running.
+    
+    - Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
+    
+    - Sets up all the necessary inputs for the AiiDA-AIAT.
+    
+    - Submits the work chain to the AiiDA daemon for execution.
+    
+    - Writes the process ID (PK) to pks.txt for future reference.
 
 3. **Monitoring and retrieving results**
 
@@ -190,24 +197,24 @@ This script performs the following actions:
  
 ## Output explanation
 
-The workflow outputs several important results:
+    The workflow outputs several important results:
 
 - **Relaxed Structures**
 
-The relaxed bulk and slab structures are stored as AiiDA StructureData nodes, accessible via the AiiDA database.
+    The relaxed bulk and slab structures are stored as AiiDA StructureData nodes, accessible via the AiiDA database.
 
 - **Most Stable Surface Terminations**
 
-The workflow identifies the most stable surface terminations at specified oxygen chemical potentials (e.g., Δμ_O = 0 eV and -2 eV).
+    The workflow identifies the most stable surface terminations at specified oxygen chemical potentials (e.g., Δμ_O = 0 eV and -2 eV).
 
 - **Surface Gibbs Free Energies (γ)**
 
-Calculated as a function of oxygen chemical potential, providing insight into surface stability under different conditions.
+    Calculated as a function of oxygen chemical potential, providing insight into surface stability under different conditions.
 
 - **Surface Phase Diagram**
 
-A phase diagram illustrating the most stable surface terminations across a range of chemical potentials for both silver and oxygen.
+    A phase diagram illustrating the most stable surface terminations across a range of chemical potentials for both silver and oxygen.
 
 - **Plots**
 
-Visual representations of the thermodynamic analysis, saved as PDF files for easy interpretation.
+    Visual representations of the thermodynamic analysis, saved as PDF files for easy interpretation.
