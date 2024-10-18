@@ -68,13 +68,13 @@ source aiida_env/bin/activate
 
 After setting up the virtual environment, install the necessary Python packages by running:
 
-```bash
-pip install -r requirements.txt
+  ```bash
+  pip install -r requirements.txt
 
 This will install all required packages, as listed in the requirements.txt file. If a requirements.txt file is not provided, you may need to install the required packages manually:
 
-```bash
-pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint
+  ```bash
+  pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint
 
 4. **Set Up AiiDA Profile**
 
@@ -82,5 +82,5 @@ Make sure you have an AiiDA profile set up and that you can run AiiDA commands. 
 
 To create a new AiiDA profile, you can use the following command and follow the interactive prompts:
 
-```bash
-verdi setup
+  ```bash
+  verdi setup
