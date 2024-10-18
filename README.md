@@ -1,13 +1,13 @@
-# MasterThermoWorkChain: Automated Surface Thermodynamics with AiiDA-VASP
+# AiiDA-AIAT: Automated Surface Thermodynamics with AiiDA-VASP
 
-Welcome to the **MasterThermoWorkChain** repository! This project provides a comprehensive workflow for automating surface thermodynamics calculations using AiiDA and VASP. It allows users to:
+Welcome to the AiiDA-AIAT repository! This project provides a comprehensive workflow for automating surface thermodynamics calculations using AiiDA and VASP. It allows users to:
 
 - Generate symmetric surface terminations from a given bulk structure and orientation.
 - Perform relaxation calculations on all generated slabs using VASP.
 - Compute surface Gibbs free energies and construct surface phase diagrams using ab initio atomistic thermodynamics.
 - Identify and output the most stable surface terminations based on thermodynamic analysis.
 
-This README will guide you through the prerequisites, installation, and usage of the MasterThermoWorkChain.
+This README will guide you through the prerequisites, installation, and usage of the AiiDA-AIAT.
 
 ---
 
@@ -69,19 +69,131 @@ It is recommended to set up a Python virtual environment to keep your dependenci
 After setting up the virtual environment, install the necessary Python packages by running:
 
   ```bash
-  pip install -r requirements.txt
-  ```
-This will install all required packages, as listed in the requirements.txt file. If a requirements.txt file is not provided, you may need to install the required packages manually:
-
-  ```bash
   pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint
   ```
-4. **Set Up AiiDA Profile**
 
-Make sure you have an AiiDA profile set up and that you can run AiiDA commands. Refer to the AiiDA documentation for guidance on setting up and configuring your AiiDA profile.
+4. **Set Up AiiDA and AiiDA-VASP**
 
-To create a new AiiDA profile, you can use the following command and follow the interactive prompts:
+Ensure that your computer is properly configured for using AiiDA and AiiDA-VASP. Please refer to the official [AiiDA](https://aiida.readthedocs.io/) and [AiiDA-VASP documentation](https://aiida-vasp.readthedocs.io/) for configuration instructions.
+This repository does **not** include instructions for configuring AiiDA or AiiDA-VASP.
 
+## Usage
+
+The AiiDA-AIAT consists of two main scripts:
+
+- AiiDA_complete_thermo.py: Defines the AiiDA-AIAT class, implementing the workflow.
+
+- submit_workchain.py: Submission script to run the AiiDA-AIAT with user-defined inputs.
+
+1. **Preparing input files**
+
+   - **Bulk Structure File**
+
+Prepare a bulk structure file in VASP POSCAR format (e.g., bulk_structure.vasp). Place it in an accessible directory.
+
+   - **Define INCAR parameters**
+
+Customize the INCAR parameters for both bulk and slab relaxation in the submission script (submit_workchain.py):
+
+```bash
+# INCAR parameters for bulk relaxation
+incar_parameters_bulk = {'incar': {
+    'ISMEAR': 0,
+    'SIGMA': 0.01,
+    'ENCUT': 550,
+    # ... other parameters ...
+}}
+
+# INCAR parameters for slab relaxation
+incar_parameters_slabs = {'incar': {
+    'ISMEAR': 0,
+    'SIGMA': 0.01,
+    'ENCUT': 550,
+    # ... other parameters ...
+}}
+```
+
+- **Set Workflow inputs**
+- 
+In submit_workchain.py, configure the inputs for the workflow, such as:
+
+- **Force Cutoff**: Convergence criterion for forces.
+
+- **K-Points Precision**: Density for k-points mesh generation.
+
+- **Potential Mapping and Family**: Define the potentials to use.
+
+- **Slab Generation Parameters**: Miller indices, slab thickness, vacuum spacing.
+
+- **Thermodynamic Parameters**: Heat of formation, total energies of elements/molecules.
+
+2. **Running the WorkChain**
+Execute the submission script:
+
+```bash
+python submit_workchain.py
+```
+
+This script performs the following actions:
+
+- Starts and restarts the AiiDA daemon to ensure it's running.
+
+- Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
+
+- Sets up all the necessary inputs for the AiiDA-AIAT.
+
+- Submits the work chain to the AiiDA daemon for execution.
+
+- Writes the process ID (PK) to pks.txt for future reference.
+
+3. **Monitoring and retrieving results**
+
+- **Monitor the WorkChain**
+
+  Use AiiDA's command-line tools to monitor the progress:
   ```bash
-  verdi setup
+  verdi process list      # List running processes
+  verdi process show PK   # Show details of the process with ID PK
   ```
+
+- **Retrieve outputs**
+
+  Upon completion, the workflow generates outputs including:
+
+  - Relaxed bulk and slab structures.
+
+  - Surface Gibbs free energies and phase diagrams.
+
+  - Plots saved in the specified directory (path_to_graphs).
+ 
+- **Visualize results**
+
+  The generated plots can be found in the thermo_results subdirectory within your specified path_to_graphs. These include:
+
+    - surface_free_energies.pdf: Surface free energy vs. oxygen chemical potential.
+
+    - surface_phase_diagram.pdf: Surface phase diagram showing the most stable terminations.
+ 
+## Output explanation
+
+The workflow outputs several important results:
+
+- **Relaxed Structures**
+
+The relaxed bulk and slab structures are stored as AiiDA StructureData nodes, accessible via the AiiDA database.
+
+- **Most Stable Surface Terminations**
+
+The workflow identifies the most stable surface terminations at specified oxygen chemical potentials (e.g., Δμ_O = 0 eV and -2 eV).
+
+- **Surface Gibbs Free Energies (γ)**
+
+Calculated as a function of oxygen chemical potential, providing insight into surface stability under different conditions.
+
+- **Surface Phase Diagram**
+
+A phase diagram illustrating the most stable surface terminations across a range of chemical potentials for both silver and oxygen.
+
+- **Plots**
+
+Visual representations of the thermodynamic analysis, saved as PDF files for easy interpretation.
