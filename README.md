@@ -1,4 +1,4 @@
-# AiiDA-TEROS: Automating Surface Thermodynamics with AiiDA and VASP
+# AiiDA-TEROS: Automating Surface Thermodynamics
 
 ## Introduction
 
@@ -97,7 +97,7 @@ This repository does **not** include instructions for configuring AiiDA or AiiDA
 
 5. **Update PYTHONPATH**
 
-You need to add the path to `AiiDA_complete_thermo.py` in your PYTHONPATH. You can do this by running the following command in your terminal:
+You need to add the path to `AiiDA_teros.py` in your PYTHONPATH. You can do this by running the following command in your terminal:
 
 ```bash
 export PYTHONPATH=$PYTHONPATH:/path/to/your/repo
@@ -108,7 +108,7 @@ Replace /path/to/your/repo with the actual path to the directory containing AiiD
 
 The AiiDA-AIAT consists of two main scripts:
 
-- AiiDA_complete_thermo.py: Defines the AiiDA-TEROS class, implementing the workflow.
+- AiiDA_teros.py: Defines the AiiDA-TEROS class, implementing the workflow.
 
 - run_aiida.py: Submission script to run the AiiDA-AIAT with user-defined inputs.
 
@@ -252,3 +252,7 @@ For all the categories above, the outputs are stored in consistent AiiDA node ty
 - **retrieved** (`FolderData`): The files retrieved from the remote calculation, including output data necessary for analysis.
 
 These outputs provide all the essential information required for further thermodynamic analyses, such as calculating surface Gibbs free energies and constructing phase diagrams. The consistent structure of the outputs ensures that they can be easily accessed and processed, regardless of the specific material or the number of slabs generated.
+
+## Acknowledgements
+
+We gratefully acknowledge the financial support from the Fundação de Amparo à Pesquisa do Estado de São Paulo (FAPESP) under project CEPID, multiusuário, grant number 2013/07296-2, 2016/23891-6, 2017/26105-4, and 2023/03447-8.
