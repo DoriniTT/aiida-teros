@@ -13,7 +13,7 @@ Understanding the thermodynamic properties of oxide surfaces is crucial in field
 ### Why Use AiiDA-TEROS?
 
 - **Efficiency**: Automate repetitive and complex tasks involved in surface thermodynamics calculations, saving time and reducing the possibility of human error.
-- **Scalability**: Easily extend the workflow to study various oxide materials, including ternary oxides, and explore multiple surface orientations and terminations.
+- **Scalability**: Easily extend the workflow to study various ternary oxides materials (for the moment!), and explore multiple surface orientations and terminations.
 - **Reproducibility**: Ensure consistent computational procedures, which is essential for validating results and comparing studies across different systems.
 - **Customization**: Tailor calculation parameters to fit specific research needs while maintaining the integrity of the automated workflow.
 
@@ -24,7 +24,6 @@ Understanding the thermodynamic properties of oxide surfaces is crucial in field
 - **Surface Thermodynamics Analysis**: Compute surface Gibbs free energies and construct surface phase diagrams using _ab initio_ atomistic thermodynamics methods.
 - **Stable Surface Identification**: Automatically identify and output the most thermodynamically stable surface terminations based on comprehensive energy analyses.
 - **Integration with AiiDA**: Utilize AiiDA's powerful data management and workflow automation features to keep track of computations and results seamlessly.
-- **Extensive Documentation**: Benefit from detailed documentation and examples that guide you through setting up and running the workflow for your specific materials.
 
 By automating these complex tasks, **AiiDA-TEROS** accelerates the research process, enabling you to explore new materials and surface phenomena more efficiently. Whether you are investigating catalytic surfaces, studying corrosion resistance, or designing novel materials, this tool provides a robust foundation for your computational thermodynamics studies.
 
