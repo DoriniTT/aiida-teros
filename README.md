@@ -252,3 +252,7 @@ For all the categories above, the outputs are stored in consistent AiiDA node ty
 - **retrieved** (`FolderData`): The files retrieved from the remote calculation, including output data necessary for analysis.
 
 These outputs provide all the essential information required for further thermodynamic analyses, such as calculating surface Gibbs free energies and constructing phase diagrams. The consistent structure of the outputs ensures that they can be easily accessed and processed, regardless of the specific material or the number of slabs generated.
+
+## Acknowledgements
+
+We gratefully acknowledge the financial support from the Fundação de Amparo à Pesquisa do Estado de São Paulo (FAPESP) under project CEPID, multiusuário, grant number 2013/07296-2, 2016/23891-6, 2017/26105-4, and 2023/03447-8.
