@@ -97,7 +97,7 @@ This repository does **not** include instructions for configuring AiiDA or AiiDA
 
 5. **Update PYTHONPATH**
 
-You need to add the path to `AiiDA_complete_thermo.py` in your PYTHONPATH. You can do this by running the following command in your terminal:
+You need to add the path to `AiiDA_teros.py` in your PYTHONPATH. You can do this by running the following command in your terminal:
 
 ```bash
 export PYTHONPATH=$PYTHONPATH:/path/to/your/repo
@@ -108,7 +108,7 @@ Replace /path/to/your/repo with the actual path to the directory containing AiiD
 
 The AiiDA-AIAT consists of two main scripts:
 
-- AiiDA_complete_thermo.py: Defines the AiiDA-TEROS class, implementing the workflow.
+- AiiDA_teros.py: Defines the AiiDA-TEROS class, implementing the workflow.
 
 - run_aiida.py: Submission script to run the AiiDA-AIAT with user-defined inputs.
 
