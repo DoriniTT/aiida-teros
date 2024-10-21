@@ -1,4 +1,4 @@
-# AiiDA-TEROS: Automating Surface Thermodynamics with AiiDA and VASP
+# AiiDA-TEROS: Automating Surface Thermodynamics
 
 ## Introduction
 
