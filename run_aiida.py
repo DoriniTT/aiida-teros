@@ -27,7 +27,7 @@ from aiida.orm import (
     Str,
     List
 )
-from AiiDA_teros import AiiDATEROS
+from AiiDA_teros import AiiDATEROSWorkChain
 
 # ================================================
 # Configuration Section
