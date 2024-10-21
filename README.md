@@ -48,7 +48,7 @@ This README will guide you through the prerequisites, installation, and usage of
 
 ## Prerequisites
 
-Before using the MasterThermoWorkChain, ensure you have the following software and packages installed:
+Before using AiiDA-TEROS, ensure you have the following software and packages installed:
 
 - **Python 3.7+**
 - **AiiDA** (v1.0 or higher)
@@ -71,16 +71,16 @@ VASP is a proprietary software and requires a valid license to use. Ensure that 
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/your_username/MasterThermoWorkChain.git
-   cd MasterThermoWorkChain
+   git clone git@github.com:DoriniTT/aiida-teros.git
+   cd aiida-teros
    ```
 2. **Set Up a Python Virtual Environment (Optional but Recommended)**
 
 It is recommended to set up a Python virtual environment to keep your dependencies isolated and avoid conflicts with other Python projects. You can create and activate a virtual environment by running the following commands:
 
   ```bash
-  python3 -m venv aiida_env
-  source aiida_env/bin/activate
+  python3 -m venv aiida_teros
+  source aiida_teros/bin/activate
   ```
 3. **Install Python Dependencies**
 
@@ -108,19 +108,19 @@ Replace /path/to/your/repo with the actual path to the directory containing AiiD
 
 The AiiDA-AIAT consists of two main scripts:
 
-- AiiDA_complete_thermo.py: Defines the AiiDA-AIAT class, implementing the workflow.
+- AiiDA_complete_thermo.py: Defines the AiiDA-TEROS class, implementing the workflow.
 
-- submit_workchain.py: Submission script to run the AiiDA-AIAT with user-defined inputs.
+- run_aiida.py: Submission script to run the AiiDA-AIAT with user-defined inputs.
 
 1. **Preparing input files**
 
    - **Bulk Structure File**
 
-Prepare a bulk structure file in VASP POSCAR format (e.g., bulk_structure.vasp). Place it in an accessible directory.
+Prepare a bulk structure file in VASP POSCAR format (e.g., bulk_structure.vasp). Place it in the same repertory as the main python scripts.
 
    - **Define INCAR parameters**
 
-Customize the INCAR parameters for both bulk and slab relaxation in the submission script (submit_workchain.py):
+Customize the INCAR parameters for both bulk and slab relaxation in the submission script (run_aiida.py):
 
 ```bash
 # INCAR parameters for bulk relaxation
@@ -142,7 +142,7 @@ incar_parameters_slabs = {'incar': {
 
 - **Set Workflow inputs**
 
-    In submit_workchain.py, configure the inputs for the workflow, such as:
+    In run_aiida.py, configure the inputs for the workflow, such as:
 
 - **Force Cutoff**: Convergence criterion for forces.
 
@@ -165,7 +165,7 @@ incar_parameters_slabs = {'incar': {
     Execute the submission script:
 
     ```bash
-    python submit_workchain.py
+    python run_aiida.py
     ```
 
     This script performs the following actions:
@@ -174,7 +174,7 @@ incar_parameters_slabs = {'incar': {
     
     - Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
     
-    - Sets up all the necessary inputs for the AiiDA-AIAT.
+    - Sets up all the necessary inputs for the AiiDA-TEROS.
     
     - Submits the work chain to the AiiDA daemon for execution.
     
