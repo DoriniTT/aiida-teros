@@ -1,14 +1,128 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+run_aiida.py
+
+This script sets up and submits the MasterThermoWorkChain for automating surface thermodynamics
+calculations using AiiDA and VASP. It ensures the AiiDA daemon is running, prepares all necessary
+inputs, and submits the workflow for execution.
+
+Usage:
+    python run_aiida.py
+"""
+
 import os
+import sys
 import time
 from ase.io import read
 from aiida.engine import submit
 from aiida import load_profile
-from aiida.orm import load_code, StructureData, Dict, Float, Int, Str, List
+from aiida.orm import (
+    load_code,
+    StructureData,
+    Dict,
+    Float,
+    Int,
+    Str,
+    List
+)
 from workchains.thermo.complete_aiida_thermo.AiiDA_complete_thermo import MasterThermoWorkChain
 
-# Load the AiiDA profile
-load_profile()
+# ================================================
+# Configuration Section
+# ================================================
+
+# Paths and File Names
+BULK_STRUCTURE_PATH = '/home/thiagotd/git/unicamp_posdoc/calculos/workchains/thermo/complete_aiida_thermo/bulk_ag3po4.vasp'
+POTENTIAL_FAMILY = 'PBE'  # Example: 'PBE', 'GGA', etc.
+CODE_LABEL = 'VASPVTST-6.4.1@bohr-vtst'
+PKS_FILE = 'pks.txt'  # File to store submitted WorkChain PKs
+
+# Thermodynamic Parameters
+DIVIDE_TO_GET_MIN_COMPOSITION = 2  # For Ag3PO4
+HF_BULK = -10.979718545  # Heat of formation for bulk
+TOTAL_ENERGY_FIRST_ELEMENT = -2.8289  # Total energy for the first element (e.g., Ag)
+TOTAL_ENERGY_O2 = -9.82  # Total energy for O2 molecule
+
+# INCAR Parameters for Bulk and Slab Relaxations
+INCAR_PARAMETERS = {
+    'bulk': {
+        'ISMEAR': 0,
+        'SIGMA': 0.01,
+        'ENCUT': 550,
+        'NCORE': 2,
+        'ISPIN': 1,
+        'LREAL': 'Auto',
+        'PREC': 'Accurate',
+        'NELM': 60,
+        'NELMIN': 6,
+        'EDIFF': 1e-5,
+        'LWAVE': True,
+        'LORBIT': 11,
+        'IVDW': 12,
+    },
+    'slab': {
+        'ISMEAR': 0,
+        'SIGMA': 0.01,
+        'ENCUT': 550,
+        'NCORE': 2,
+        'ISPIN': 1,
+        'LREAL': 'Auto',
+        'PREC': 'Accurate',
+        'NELM': 60,
+        'NELMIN': 6,
+        'EDIFF': 1e-5,
+        'LWAVE': True,
+        'LORBIT': 11,
+        'IVDW': 12,
+    }
+}
+
+# Workflow Settings
+WORKFLOW_SETTINGS = {
+    'force_cutoff': 0.01,        # Force convergence criterion in eV/Å
+    'steps': 1000,               # Maximum number of relaxation steps
+    'kpoints_precision': 0.3,    # K-points mesh density
+    'phase_diagram_precision': 500,  # Precision for phase diagram calculations
+    'path_to_graphs': os.getcwd(),    # Directory to save generated plots
+}
+
+# Potential Mapping
+POTENTIAL_MAPPING = {
+    'Ag': 'Ag',
+    'O': 'O',
+    'P': 'P',
+}
+
+# Parser Settings
+PARSER_SETTINGS = {
+    'add_energies': True,
+    'add_trajectory': True,
+    'add_forces': True,
+    'add_structure': True,
+    'add_kpoints': True,
+}
+
+# Computer Options
+COMPUTER_OPTIONS = {
+    'resources': {
+        'num_machines': 1,
+        'num_cores_per_machine': 40
+    },
+    'queue_name': 'par40',
+}
+
+# Slab Generation Parameters
+SLAB_PARAMETERS = {
+    'miller_indices': [1, 1, 0],  # Example: [1, 1, 0]
+    'min_slab_thickness': 10.0,   # Minimum slab thickness in Å
+    'vacuum': 15.0,                # Vacuum spacing in Å
+}
+
+# ================================================
+# Helper Functions
+# ================================================
 
 def start_and_restart_daemon(max_retries=5, delay=3):
     """
@@ -41,7 +155,7 @@ def start_and_restart_daemon(max_retries=5, delay=3):
         else:
             raise RuntimeError('Failed to start the daemon after multiple attempts.')
 
-    # Now restart the daemon
+    # Restart the daemon
     print('Restarting the daemon.')
     client.restart_daemon()
 
@@ -57,131 +171,109 @@ def start_and_restart_daemon(max_retries=5, delay=3):
     else:
         raise RuntimeError('Failed to restart the daemon after multiple attempts.')
 
-# Start and restart the daemon
-start_and_restart_daemon()
+def validate_file_exists(file_path):
+    """
+    Validate that a file exists at the given path.
 
-# Path to the bulk structure file
-bulk_structure_path = f'/home/thiagotd/git/unicamp_posdoc/calculos/workchains/thermo/complete_aiida_thermo/bulk_ag3po4.vasp'
+    :param file_path: Path to the file.
+    :raises FileNotFoundError: If the file does not exist.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f'Bulk structure file not found: {file_path}')
 
-# Validate that the bulk structure file exists
-if not os.path.exists(bulk_structure_path):
-    raise FileNotFoundError(f'Bulk structure file not found: {bulk_structure_path}')
+def load_bulk_structure(file_path):
+    """
+    Load the bulk structure from a VASP POSCAR file and create a StructureData node.
 
-# Read the bulk structure and create a StructureData node
-bulk_structure = StructureData(ase=read(bulk_structure_path))
-divide_to_get_minimal_bulk_composition = Int(2) # Ag3PO4
-hf_bulk = Float(-10.979718545)
-total_energy_first_element = Float(-2.8289)
-total_energy_o2 = Float(-9.82)
+    :param file_path: Path to the POSCAR file.
+    :return: AiiDA StructureData node.
+    """
+    try:
+        ase_structure = read(file_path)
+        structure = StructureData(ase=ase_structure)
+        print(f'Loaded bulk structure from {file_path}.')
+        return structure
+    except Exception as e:
+        raise RuntimeError(f'Failed to read bulk structure file: {e}')
 
-# Define INCAR parameters for bulk relaxation
-incar_parameters_bulk = {'incar': {
-    'ISMEAR': 0,
-    'SIGMA': 0.01,
-    'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,         
-    'LREAL': 'Auto',
-    'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
-    'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
-}}
+def load_vasp_code(code_label):
+    """
+    Load the VASP code from AiiDA using the given label.
 
-# Define INCAR parameters for slab relaxation
-incar_parameters_slabs = {'incar': {
-    'ISMEAR': 0,
-    'SIGMA': 0.01,
-    'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,        
-    'LREAL': 'Auto',
-    'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
-    'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
-}}
+    :param code_label: Label of the VASP code configured in AiiDA.
+    :return: AiiDA Code node.
+    """
+    try:
+        code = load_code(code_label)
+        print(f'Loaded VASP code: {code_label}.')
+        return code
+    except Exception as e:
+        raise RuntimeError(f'Failed to load VASP code "{code_label}": {e}')
 
-# Define relaxation settings
-force_cutoff = Float(0.01)          # Force convergence criterion
-steps = Int(1000)                    # Maximum number of relaxation steps
-kpoints_precision = Float(0.3)      # K-points mesh density
+# ================================================
+# Main Execution
+# ================================================
 
-# Define potential mapping
-potential_mapping = Dict(dict={
-    'Ag': 'Ag',
-    'O': 'O',
-    'P': 'P',
-})
+def main():
+    # Load the AiiDA profile
+    try:
+        load_profile()
+        print('AiiDA profile loaded successfully.')
+    except Exception as e:
+        sys.exit(f'Failed to load AiiDA profile: {e}')
 
-# Define potential family
-potential_family = Str('PBE')  # Example: 'PBE', 'GGA', etc.
+    # Start and restart the AiiDA daemon
+    try:
+        start_and_restart_daemon()
+    except RuntimeError as e:
+        sys.exit(e)
 
-# Define parser settings
-parser_settings = Dict(dict={
-    'add_energies': True,
-    'add_trajectory': True,
-    'add_forces': True,
-    'add_structure': True,
-    'add_kpoints': True,
-})
+    # Validate the bulk structure file
+    try:
+        validate_file_exists(BULK_STRUCTURE_PATH)
+    except FileNotFoundError as e:
+        sys.exit(e)
 
-# Define computer options
-computer_options = Dict(dict={
-    'resources': {
-        'num_machines': 1,
-        'num_cores_per_machine': 40
-    },
-    'queue_name': 'par40',
-})
+    # Load the bulk structure
+    bulk_structure = load_bulk_structure(BULK_STRUCTURE_PATH)
 
-# Define slab generation parameters
-miller_indices = List(list=[1, 1, 0])  # Example: [1, 1, 0]
-min_slab_thickness = Float(10.0)       # Minimum slab thickness in Angstroms
-vacuum = Float(15.0)                    # Vacuum spacing in Angstroms
+    # Create AiiDA data nodes for inputs
+    inputs = {
+        'code': load_vasp_code(CODE_LABEL),
+        'bulk_structure': bulk_structure,
+        'incar_parameters_bulk': Dict(dict=INCAR_PARAMETERS['bulk']),
+        'incar_parameters_slabs': Dict(dict=INCAR_PARAMETERS['slab']),
+        'force_cutoff': Float(WORKFLOW_SETTINGS['force_cutoff']),
+        'steps': Int(WORKFLOW_SETTINGS['steps']),
+        'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
+        'potential_mapping': Dict(dict=POTENTIAL_MAPPING),
+        'potential_family': Str(POTENTIAL_FAMILY),
+        'parser_settings': Dict(dict=PARSER_SETTINGS),
+        'computer_options': Dict(dict=COMPUTER_OPTIONS),
+        'miller_indices': List(list=SLAB_PARAMETERS['miller_indices']),
+        'min_slab_thickness': Float(SLAB_PARAMETERS['min_slab_thickness']),
+        'vacuum': Float(SLAB_PARAMETERS['vacuum']),
+        'divide_to_get_minimal_bulk_composition': Int(DIVIDE_TO_GET_MIN_COMPOSITION),
+        'precision_phase_diagram': Int(WORKFLOW_SETTINGS['phase_diagram_precision']),
+        'HF_bulk': Float(HF_BULK),
+        'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
+        'total_energy_o2': Float(TOTAL_ENERGY_O2),
+        'path_to_graphs': Str(WORKFLOW_SETTINGS['path_to_graphs']),
+    }
 
-# Load the VASP code
-code_label = 'VASPVTST-6.4.1@bohr-vtst'
-code = load_code(code_label)
+    # Submit the WorkChain
+    try:
+        print('Submitting MasterThermoWorkChain...')
+        future = submit(MasterThermoWorkChain, **inputs)
+        print(f'Submitted MasterThermoWorkChain with PK {future.pk}')
 
-phase_diagram_precision = Int(500)
-path_to_graphs = Str(os.getcwd())
+        # Save the PK of the WorkChain for future reference
+        with open(PKS_FILE, 'a') as f:
+            f.write(f'{future.pk}\n')
+        print(f'WorkChain PK {future.pk} saved to {PKS_FILE}.')
 
-# Prepare inputs
-thermo_inputs = {
-    'code': code,
-    'bulk_structure': bulk_structure,
-    'incar_parameters_bulk': incar_parameters_bulk,
-    'incar_parameters_slabs': incar_parameters_slabs,
-    'force_cutoff': force_cutoff,
-    'steps': steps,
-    'kpoints_precision': kpoints_precision,
-    'potential_mapping': potential_mapping,
-    'potential_family': potential_family,
-    'parser_settings': parser_settings,
-    'computer_options': computer_options,
-    'miller_indices': miller_indices,
-    'min_slab_thickness': min_slab_thickness,
-    'vacuum': vacuum,
-    'divide_to_get_minimal_bulk_composition': divide_to_get_minimal_bulk_composition,
-    'precision_phase_diagram': phase_diagram_precision,
-    'HF_bulk': hf_bulk,
-    'total_energy_first_element': total_energy_first_element,
-    'total_energy_o2': total_energy_o2,
-    'path_to_graphs': path_to_graphs,
-}
+    except Exception as e:
+        sys.exit(f'Failed to submit MasterThermoWorkChain: {e}')
 
-# Submit the WorkChain
-future = submit(MasterThermoWorkChain, **thermo_inputs)
-
-# Save the PK of the WorkChain
-with open('pks.txt', 'a') as f:
-    f.write(f'{future.pk}\n')
-
-print(f'Submitted MasterThermoWorkChain with PK {future.pk}')
+if __name__ == '__main__':
+    main()
