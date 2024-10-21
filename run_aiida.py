@@ -34,9 +34,9 @@ from AiiDA_teros import AiiDATEROS
 # ================================================
 
 # Paths and File Names
-BULK_STRUCTURE_PATH = '/home/thiagotd/git/unicamp_posdoc/calculos/workchains/thermo/complete_aiida_thermo/bulk_ag3po4.vasp'
-POTENTIAL_FAMILY = 'PBE'  # Example: 'PBE', 'GGA', etc.
-CODE_LABEL = 'VASPVTST-6.4.1@bohr-vtst'
+BULK_STRUCTURE_PATH = 'path/to/your/bulk_structure.vasp'
+POTENTIAL_FAMILY = 'your_potential_family_here'  # Example: 'PBE', 'GGA', etc.
+CODE_LABEL = 'your_aiida_code@label_here'
 PKS_FILE = 'pks.txt'  # File to store submitted WorkChain PKs
 
 # Thermodynamic Parameters

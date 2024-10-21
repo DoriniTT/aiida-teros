@@ -4,7 +4,7 @@
 """
 run_aiida.py
 
-This script sets up and submits the MasterThermoWorkChain for automating surface thermodynamics
+This script sets up and submits the AiiDATEROSWorkChain for automating surface thermodynamics
 calculations using AiiDA and VASP. It ensures the AiiDA daemon is running, prepares all necessary
 inputs, and submits the workflow for execution.
 
@@ -27,16 +27,16 @@ from aiida.orm import (
     Str,
     List
 )
-from workchains.thermo.complete_aiida_thermo.AiiDA_complete_thermo import MasterThermoWorkChain
+from examples.ag2moo4.AiiDA_teros import AiiDATEROS
 
 # ================================================
 # Configuration Section
 # ================================================
 
 # Paths and File Names
-BULK_STRUCTURE_PATH = '/home/thiagotd/git/unicamp_posdoc/calculos/workchains/thermo/complete_aiida_thermo/bulk_ag3po4.vasp'
-POTENTIAL_FAMILY = 'PBE'  # Example: 'PBE', 'GGA', etc.
-CODE_LABEL = 'VASPVTST-6.4.1@bohr-vtst'
+BULK_STRUCTURE_PATH = 'bulk_ag3po4.vasp'
+POTENTIAL_FAMILY = 'your_potential_family_here'  # Example: 'PBE', 'GGA', etc.
+CODE_LABEL = 'your_code@here'  # Label of the configured VASP code in AiiDA
 PKS_FILE = 'pks.txt'  # File to store submitted WorkChain PKs
 
 # Thermodynamic Parameters
@@ -263,9 +263,9 @@ def main():
 
     # Submit the WorkChain
     try:
-        print('Submitting MasterThermoWorkChain...')
-        future = submit(MasterThermoWorkChain, **inputs)
-        print(f'Submitted MasterThermoWorkChain with PK {future.pk}')
+        print('Submitting AiiDATEROSWorkChain...')
+        future = submit(AiiDATEROSWorkChain, **inputs)
+        print(f'Submitted AiiDATEROSWorkChain with PK {future.pk}')
 
         # Save the PK of the WorkChain for future reference
         with open(PKS_FILE, 'a') as f:
@@ -273,7 +273,7 @@ def main():
         print(f'WorkChain PK {future.pk} saved to {PKS_FILE}.')
 
     except Exception as e:
-        sys.exit(f'Failed to submit MasterThermoWorkChain: {e}')
+        sys.exit(f'Failed to submit AiiDATEROSWorkChain: {e}')
 
 if __name__ == '__main__':
     main()

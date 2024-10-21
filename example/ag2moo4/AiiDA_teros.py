@@ -28,7 +28,7 @@ load_profile()
 VaspWorkflow = WorkflowFactory('vasp.relax')
 RelaxWorkflow = WorkflowFactory('vasp.relax')
 
-class MasterThermoWorkChain(WorkChain):
+class AiiDATEROS(WorkChain):
     """
     Master WorkChain for generating slab structures from a bulk structure
     and performing relaxation calculations on them.
