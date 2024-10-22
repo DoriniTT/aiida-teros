@@ -106,11 +106,11 @@ Replace /path/to/your/repo with the actual path to the directory containing AiiD
 
 ## Usage
 
-The AiiDA-AIAT consists of two main scripts:
+The AiiDA-TEROS consists of two main scripts:
 
 - AiiDA_teros.py: Defines the AiiDA-TEROS class, implementing the workflow.
 
-- run_aiida.py: Submission script to run the AiiDA-AIAT with user-defined inputs.
+- run_aiida.py: Submission script to run the AiiDA-TEROS with user-defined inputs.
 
 1. **Preparing input files**
 
