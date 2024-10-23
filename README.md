@@ -122,22 +122,50 @@ Prepare a bulk structure file in VASP POSCAR format (e.g., bulk_structure.vasp).
 
 Customize the INCAR parameters for both bulk and slab relaxation in the submission script (run_aiida.py):
 
-```bash
-# INCAR parameters for bulk relaxation
-incar_parameters_bulk = {'incar': {
+```python
+# INCAR Parameters for Bulk Relaxations
+INCAR_PARAMETERS_BULK = {'incar': {
     'ISMEAR': 0,
     'SIGMA': 0.01,
     'ENCUT': 550,
-    # ... other parameters ...
-}}
+    'NCORE': 2,
+    'ISPIN': 1,
+    'ISIF': 3,
+    'IBRION': 2,
+    'NSW': 100,
+    'EDIFFG': -0.01,
+    'LREAL': 'Auto',
+    'PREC': 'Accurate',
+    'NELM': 60,
+    'NELMIN': 6,
+    'EDIFF': 1e-5,
+    'LWAVE': True,
+    'LORBIT': 11,
+    'IVDW': 12,
+    }
+}
 
-# INCAR parameters for slab relaxation
-incar_parameters_slabs = {'incar': {
+# INCAR Parameters for Slab Relaxations
+INCAR_PARAMETERS_SLAB = {'incar': {
     'ISMEAR': 0,
     'SIGMA': 0.01,
     'ENCUT': 550,
-    # ... other parameters ...
-}}
+    'NCORE': 2,
+    'ISPIN': 1,
+    'ISIF': 2,
+    'IBRION': 2,
+    'NSW': 1000,
+    'EDIFFG': -0.05,
+    'LREAL': 'Auto',
+    'PREC': 'Accurate',
+    'NELM': 60,
+    'NELMIN': 6,
+    'EDIFF': 1e-5,
+    'LWAVE': True,
+    'LORBIT': 11,
+    'IVDW': 12,
+    }
+}
 ```
 
 - **Set Workflow inputs**
@@ -153,34 +181,59 @@ incar_parameters_slabs = {'incar': {
    ```python
    # Set potential family and mapping
    builder.potential_family = Str('PBE')  # Using the PBE potential family
-   builder.potential_mapping = {'Ag': 'Ag', 'O': 'O'}  # Map potentials for Ag and O elements
+   builder.potential_mapping = {'Ag': 'Ag', 'O': 'O', 'P': 'P'}  # Map potentials for Ag, O, and P elements
+   ```
 
 - **Slab Generation Parameters**: Set the Miller indices, slab thickness, and vacuum spacing to define the slab’s orientation, size, and separation between periodic images.
 
-- **Thermodynamic Parameters**: The heat of formation must be calculated in advance or taken from experimental or theoretical sources and provided in eV (not eV/atom). Additionally, you need the total energies of the reference elements for the structure of interest. For example, if studying Ag₂MoO₄, you must have pre-calculated the total energies of the stable reference states: Ag (FCC), Mo (BCC), and O₂ (molecule). In future updates, we plan to automate this process within the code.
+   ```python
+   SLAB_PARAMETERS = {
+       'miller_indices': [1, 1, 0],  # Example: [1, 1, 0]
+       'min_slab_thickness': 10.0,   # Minimum slab thickness in Å
+   }
+   ```
 
-- **Minimal Bulk Composition**: Some primitive bulk structures may not have the minimal stoichiometry. In such cases, you need to use the `divide_to_get_minimal_bulk_composition` input to obtain the minimal composition. For example, if the primitive bulk structure of Ag₂MoO₄ has the stoichiometry Ag₄Mo₂O₈, you would set `divide_to_get_minimal_bulk_composition = 2` to correctly reduce the composition to Ag₂MoO₄.
+- **Thermodynamic Parameters**:
 
-2. **Running the WorkChain**
-    Execute the submission script:
+  #### For Binary Oxides (e.g., Ag₂O)
+  For binary oxides, you only need the enthalpy of formation (ΔH_f) in eV per formula unit. This can be calculated in advance or taken from experimental or theoretical sources.
 
-    ```bash
-    python run_aiida.py
-    ```
+  #### For Ternary Oxides (e.g., Ag₂MoO₄)
+  For ternary oxides, there are additional considerations:
+  - Ensure the order of elements in the input file (e.g., POSCAR, CIF) is consistent with the standard notation (e.g., Ag₂MoO₄).
+  - Besides the enthalpy of formation (ΔH_f), you also need the total energies (E_tot) calculated with DFT for the first element (in this example, Ag) and for oxygen. These should be obtained using the same functional as used in the TEROS workchain.
 
-    This script performs the following actions:
-    
-    - Starts and restarts the AiiDA daemon to ensure it's running.
-    
-    - Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
-    
-    - Sets up all the necessary inputs for the AiiDA-TEROS.
-    
-    - Submits the work chain to the AiiDA daemon for execution.
-    
-    - Writes the process ID (PK) to pks.txt for future reference.
+  In future updates, we plan to automate these processes within the code.
 
-3. **Monitoring and retrieving results**
+- **Computer Options**: Configure computer options such as resources and queue name:
+
+   ```python
+   COMPUTER_OPTIONS = {
+       'resources': {
+           'num_machines': 1,
+           'num_cores_per_machine': 40
+       },
+       'queue_name': 'par40',
+   }
+   ```
+
+## Running the WorkChain
+
+Execute the submission script:
+
+```bash
+python run_aiida.py
+```
+
+This script performs the following actions:
+
+- Starts and restarts the AiiDA daemon to ensure it's running.
+- Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
+- Sets up all the necessary inputs for the AiiDA-TEROS.
+- Submits the work chain to the AiiDA daemon for execution.
+- Writes the process ID (PK) to `pks.txt` for future reference.
+
+## Monitoring and Retrieving Results
 
 - **Monitor the WorkChain**
 
@@ -195,18 +248,15 @@ incar_parameters_slabs = {'incar': {
   Upon completion, the workflow generates outputs including:
 
   - Relaxed bulk and slab structures.
-
   - Surface Gibbs free energies and phase diagrams.
+  - Plots saved in the specified directory (`thermo_results/binary` or `thermo_results/ternary`).
 
-  - Plots saved in the specified directory (path_to_graphs).
- 
 - **Visualize results**
 
-  The generated plots can be found in the thermo_results subdirectory within your specified path_to_graphs. These include:
+  The generated plots can be found in the appropriate subdirectory (`thermo_results/binary` or `thermo_results/ternary`). These include:
 
-    - surface_free_energies.pdf: Surface free energy vs. oxygen chemical potential.
-
-    - surface_phase_diagram.pdf: Surface phase diagram showing the most stable terminations.
+  - **surface_free_energies.pdf**: Surface free energy vs. oxygen chemical potential.
+  - **surface_phase_diagram.pdf** (for ternary oxides): Surface phase diagram showing the most stable terminations.
 
 ## Output Explanation
 
@@ -243,6 +293,20 @@ For each identified stable slab (`relax_slab_1`, `relax_slab_2`, ...), the outpu
 - **remote_folder** (`RemoteData`): The directory where the stable slab calculations were performed.
 - **retrieved** (`FolderData`): Retrieved files from the calculation, which may include data specific to surface thermodynamics analysis.
 
+### 4. Generated Plots for Surface Gibbs Free Energies vs. Chemical Potentials
+
+#### For Binary Oxides (e.g., Ag₂O)
+For binary oxides, a plot is generated showing the **Surface Gibbs free energy (γ) as a function of the chemical potential of oxygen (Δμ_O)**. This plot helps visualize how changes in the chemical potential of oxygen affect the surface stability.
+
+The generated plot is saved in the directory `thermo_results/binary`.
+
+#### For Ternary Oxides (e.g., Ag₂MoO₄)
+For ternary oxides, two plots are generated:
+
+- **Surface Gibbs free energy (γ) vs. chemical potential of oxygen (Δμ_O)**: Similar to the binary oxide case, this plot shows the relationship between the surface Gibbs free energy and the variation in the chemical potential of oxygen.
+- **Surface Phase Diagram**: This plot shows the variation of the chemical potential of the first element (e.g., Ag, Δμ_Ag) and the variation of the chemical potential of oxygen (Δμ_O). The most stable surface terminations are identified in this diagram, providing insights into how both elements contribute to surface stability under different conditions.
+
+The generated plots are saved in the directory `thermo_results/ternary`.
 
 ### Common Output Descriptions:
 For all the categories above, the outputs are stored in consistent AiiDA node types:
