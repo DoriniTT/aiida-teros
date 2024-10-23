@@ -126,44 +126,26 @@ Customize the INCAR parameters for both bulk and slab relaxation in the submissi
 # INCAR Parameters for Bulk Relaxations
 INCAR_PARAMETERS_BULK = {'incar': {
     'ISMEAR': 0,
-    'SIGMA': 0.01,
     'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,
     'ISIF': 3,
     'IBRION': 2,
     'NSW': 100,
     'EDIFFG': -0.01,
-    'LREAL': 'Auto',
     'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
     'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
     }
 }
 
 # INCAR Parameters for Slab Relaxations
 INCAR_PARAMETERS_SLAB = {'incar': {
     'ISMEAR': 0,
-    'SIGMA': 0.01,
     'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,
     'ISIF': 2,
     'IBRION': 2,
     'NSW': 1000,
     'EDIFFG': -0.05,
-    'LREAL': 'Auto',
     'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
     'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
     }
 }
 ```
@@ -196,14 +178,16 @@ INCAR_PARAMETERS_SLAB = {'incar': {
 - **Thermodynamic Parameters**:
 
   #### For Binary Oxides (e.g., Ag₂O)
-  For binary oxides, you only need the enthalpy of formation (ΔH_f) in eV per formula unit. This can be calculated in advance or taken from experimental or theoretical sources.
+  For binary oxides, you only need the enthalpy of formation (ΔH_f) in eV per formula unit. This can be calculated in advance or taken from experimental or theoretical sources. The thermodynamic model used the equations demonstrated in the following paper:
+  [1] K. Reuter e M. Scheffler, “Composition, structure, and stability of RuO₂(110) as a function of oxygen pressure”, Phys. Rev. B, vol. 65, nº 3, p. 035406, dez. 2001, doi: 10.1103/PhysRevB.65.035406.
 
   #### For Ternary Oxides (e.g., Ag₂MoO₄)
   For ternary oxides, there are additional considerations:
   - Ensure the order of elements in the input file (e.g., POSCAR, CIF) is consistent with the standard notation (e.g., Ag₂MoO₄).
-  - Besides the enthalpy of formation (ΔH_f), you also need the total energies (E_tot) calculated with DFT for the first element (in this example, Ag) and for oxygen. These should be obtained using the same functional as used in the TEROS workchain.
+  - Besides the enthalpy of formation (ΔH_f), you also need the total energies (E_tot) calculated with DFT for the first element (in this example, Ag) and for oxygen. These should be obtained using the same functional as used in the TEROS workchain. The thermodynamic model used the equations demonstrated in the following paper:
+  [1] E. Heifets, J. Ho, e B. Merinov, “Density functional simulation of the BaZrO₃ (011) surface structure”, Phys. Rev. B, vol. 75, nº 15, p. 155431, abr. 2007, doi: 10.1103/PhysRevB.75.155431.
 
-  In future updates, we plan to automate these processes within the code.
+  In future updates, we plan to automate the determination of the enthalpy of formation and the total energies of common elements within the code.
 
 - **Computer Options**: Configure computer options such as resources and queue name:
 
@@ -255,8 +239,7 @@ This script performs the following actions:
 
   The generated plots can be found in the appropriate subdirectory (`thermo_results/binary` or `thermo_results/ternary`). These include:
 
-  - **surface_free_energies.pdf**: Surface free energy vs. oxygen chemical potential.
-  - **surface_phase_diagram.pdf** (for ternary oxides): Surface phase diagram showing the most stable terminations.
+  - **surface_free_energies.pdf**
 
 ## Output Explanation
 
