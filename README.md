@@ -127,6 +127,7 @@ The AiiDA-TEROS workflow consists of three main input files:
   - **Parser Settings**: Settings for parsing the output.
   - **Computer Options**: Computational resource settings such as number of machines and cores.
   - **Slab Generation Parameters**: Parameters for slab generation, such as Miller indices and slab thickness.
+  - **Terminations**: Specifies the surface terminations to be calculated. If provided, these terminations will be used instead of generating them automatically.
 
 ### 2. Running the WorkChain
 
