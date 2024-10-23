@@ -5,30 +5,29 @@ from aiida.orm import (
     Code, StructureData, KpointsData, Float, Dict, List, Str, Bool, SinglefileData, Int, load_node
 )
 from aiida.plugins import WorkflowFactory
+from aiida.engine import if_, while_, return_
 from aiida.engine import calcfunction
 from aiida.common.extendeddicts import AttributeDict
 from ase.io import read
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.surface import SlabGenerator
 from pymatgen.io.vasp.outputs import Outcar
+from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import seaborn as sns
+from aiida import load_profile
+load_profile()
 plt.rc('text', usetex=False)
 plt.rc('font', family='sans-serif')
 plt.rcParams['font.sans-serif'] = ['Arial', 'DejaVu Sans']
 ureg = pint.UnitRegistry()
 ureg.setup_matplotlib(True)
 
-# Load the AiiDA profile
-from aiida import load_profile
-load_profile()
-
 # Define workflows
-VaspWorkflow = WorkflowFactory('vasp.relax')
-RelaxWorkflow = WorkflowFactory('vasp.relax')
+VaspWorkflow = WorkflowFactory('vasp.vasp')
 
-class AiiDATEROS(WorkChain):
+class AiiDATEROSWorkChain(WorkChain):
     """
     Master WorkChain for generating slab structures from a bulk structure
     and performing relaxation calculations on them.
@@ -36,32 +35,171 @@ class AiiDATEROS(WorkChain):
 
     @classmethod
     def define(cls, spec):
+        """
+        Define the input and output specifications for the AiiDA workflow.
+        This method sets up the input parameters, namespaces, and computational resources required for the workflow.
+        It also outlines the steps of the workflow and defines the exit codes for error handling.
+        Inputs:
+            - code (Code): VASP calculation code.
+            - bulk_structure (StructureData): Bulk material structure.
+            - incar_parameters_bulk (Namespace): INCAR parameters for relaxation of the bulk.
+            - incar_parameters_slab (Namespace): INCAR parameters for relaxation of the slabs.
+            - force_cutoff (Float): Force cutoff for relaxation.
+            - steps (Int): Number of steps for relaxation.
+            - kpoints_precision (Float): K-points mesh density precision.
+            - potential_mapping (Dict): Mapping of potentials for each element.
+            - potential_family (Str): Potential family for VASP calculations.
+            - parser_settings (Dict): Settings for the parser.
+            - computer_options (Dict): Computational resources and submission options.
+            - miller_indices (List): Miller indices for slab generation.
+            - min_slab_thickness (Float): Minimum slab thickness in Angstroms.
+            - vacuum (Float): Vacuum spacing in Angstroms.
+            - precision_phase_diagram (Int): Precision for the phase diagram.
+            - total_energy_first_element (Float): Calculated total energy of the first element.
+            - total_energy_o2 (Float): Calculated total energy of the O2 molecule.
+            - HF_bulk (Float): Heat of formation of the bulk material.
+            - path_to_graphs (Str): Path to store the graphs.
+        Outline:
+            1. run_relax_bulk: Relax bulk structure.
+            2. inspect_relax_bulk: Inspect bulk relaxation results.
+            3. generate_slabs: Generate slabs from relaxed bulk.
+            4. run_relax_all_slabs: Relax all generated slabs.
+            5. inspect_relax_all_slabs: Inspect relaxation results.
+            6. result_binary: Create a dictionary with the results (if binary).
+            7. plot_gammas_binary: Plot gamma vs delta_o with temperature (if binary).
+            6. result_ternary: Create a dictionary with the results (if ternary).
+            7. plot_gamma_delta_o_withtemp: Plot gamma vs delta_o with temperature (if ternary).
+            8. plot_phase_diagram: Plot the combined figures (if ternary).
+        Outputs:
+            - bulk (Namespace): Exposed outputs from VaspWorkflow.
+            - relaxations (Namespace): Dynamic namespace for relaxation outputs.
+            - stable_structures (Namespace): Dynamic namespace for stable structures.
+        Exit Codes:
+            - 201: ERROR_GENERATE_SLABS_FAILED - Slab generation failed.
+            - 202: ERROR_RELAX_SLABS_FAILED - Relaxation of slabs failed.
+            - 203: ERROR_RELAX_BULK_FAILED - Relaxation of bulk structure failed.
+        """
         super().define(spec)
 
         # Define inputs
-        spec.input('code', valid_type=Code, help='VASP calculation code.')
-        spec.input('bulk_structure', valid_type=StructureData, help='Bulk material structure.')
+        spec.input(
+            'code', 
+            valid_type=Code, 
+            help='VASP calculation code.'
+        )
+        spec.input(
+            'bulk_structure', 
+            valid_type=StructureData, 
+            help='Bulk material structure.'
+        )
         
-        # Define INCAR parameters as separate namespaces for bulk and slabs
-        spec.input_namespace('incar_parameters_bulk', help='INCAR parameters for relaxation of the bulk.', dynamic=True)
-        spec.input_namespace('incar_parameters_slabs', help='INCAR parameters for relaxation of the slabs.', dynamic=True)
+        # INCAR parameters
+        spec.input_namespace(
+            'incar_parameters_bulk', 
+            help='INCAR parameters for relaxation of the bulk.', 
+            dynamic=True
+        )
+        spec.input_namespace(
+            'incar_parameters_slab', 
+            help='INCAR parameters for relaxation of the slabs.', 
+            dynamic=True
+        )
         
-        spec.input('force_cutoff', valid_type=Float, help='Force cutoff for relaxation.')
-        spec.input('steps', valid_type=Int, help='Number of steps for relaxation.')
-        spec.input('kpoints_precision', valid_type=Float, help='K-points mesh density precision.')
-        spec.input('potential_mapping', valid_type=Dict, help='Mapping of potentials for each element.')
-        spec.input('potential_family', valid_type=Str, help='Potential family for VASP calculations.')
-        spec.input('parser_settings', valid_type=Dict, help='Settings for the parser.')
-        spec.input('computer_options', valid_type=Dict, help='Computational resources and submission options.')
-        spec.input('miller_indices', valid_type=List, help='Miller indices for slab generation.')
-        spec.input('min_slab_thickness', valid_type=Float, help='Minimum slab thickness in Angstroms.')
-        spec.input('vacuum', valid_type=Float, help='Vacuum spacing in Angstroms.')
-        spec.input('divide_to_get_minimal_bulk_composition', valid_type=Int, help='Minimal number of atoms in the bulk unit cell.')
-        spec.input('precision_phase_diagram', valid_type=Int, help='Precision for the phase diagram.')
-        spec.input('total_energy_first_element', valid_type=Float, help='Calculated total energy of the first element.')
-        spec.input('total_energy_o2', valid_type=Float, help='Calculated total energy of the O2 molecule.')
-        spec.input('HF_bulk', valid_type=Float, help='Heat of formation of the bulk material.')
-        spec.input('path_to_graphs', valid_type=Str, help='Path to store the graphs.')
+        # Relaxation settings
+        spec.input(
+            'force_cutoff', 
+            valid_type=Float, 
+            default=lambda: Float(0.01),
+            help='Force cutoff for relaxation.'
+        )
+        spec.input(
+            'steps', 
+            valid_type=Int, 
+            default=lambda: Int(1000), 
+            help='Number of steps for relaxation.'
+        )
+        spec.input(
+            'kpoints_precision', 
+            valid_type=Float, 
+            default=lambda: Float(0.3), 
+            help='K-points mesh density precision.'
+        )
+        
+        # Potential settings
+        spec.input(
+            'potential_mapping', 
+            valid_type=Dict, 
+            help='Mapping of potentials for each element.'
+        )
+        spec.input(
+            'potential_family', 
+            valid_type=Str, 
+            help='Potential family for VASP calculations.'
+        )
+        
+        # Parser settings
+        spec.input(
+            'parser_settings', 
+            valid_type=Dict, 
+            help='Settings for the parser.'
+        )
+        
+        # Computational resources
+        spec.input(
+            'computer_options', 
+            valid_type=Dict, 
+            help='Computational resources and submission options.'
+        )
+        
+        # Slab generation settings
+        spec.input(
+            'miller_indices', 
+            valid_type=List, 
+            help='Miller indices for slab generation.'
+        )
+        spec.input(
+            'min_slab_thickness', 
+            valid_type=Float, 
+            help='Minimum slab thickness in Angstroms.'
+        )
+        spec.input(
+            'vacuum', 
+            valid_type=Float, 
+            default=lambda: Float(15), 
+            help='Vacuum spacing in Angstroms.'
+        )
+        
+        # Phase diagram settings
+        spec.input(
+            'precision_phase_diagram', 
+            valid_type=Int, 
+            default=lambda: Int(500), 
+            help='Precision for the phase diagram.'
+        )
+        
+        # Energy and formation enthalpy
+        spec.input(
+            'total_energy_first_element', 
+            valid_type=Float, 
+            help='Calculated total energy of the first element.'
+        )
+        spec.input(
+            'total_energy_o2', 
+            valid_type=Float, 
+            help='Calculated total energy of the O2 molecule.'
+        )
+        spec.input(
+            'HF_bulk', 
+            valid_type=Float, 
+            help='Heat of formation of the bulk material.'
+        )
+        # Path for storing graphs
+        spec.input(
+            'path_to_graphs', 
+            valid_type=Str, 
+            default=lambda: Str(os.getcwd()), 
+            help='Path to store the graphs.'
+        )
 
         # Define the workflow outline
         spec.outline(
@@ -70,20 +208,59 @@ class AiiDATEROS(WorkChain):
             cls.generate_slabs,            # Step 3: Generate slabs from relaxed bulk
             cls.run_relax_all_slabs,       # Step 4: Relax all generated slabs
             cls.inspect_relax_all_slabs,   # Step 5: Inspect relaxation results
-            cls.result_dict,               # Step 6: Create a dictionary with the results
-            cls.plot_gamma_delta_o_withtemp, # Step 7: Plot gamma vs delta_o with temperature
+
+            if_(cls.is_binary)(
+            cls.result_binary,         # Step 6: Create a dictionary with the results
+            cls.plot_gammas_binary,    # Step 7: Plot gamma vs delta_o with temperature
+            ).else_(
+            cls.result_ternary,        # Step 6: Create a dictionary with the results
+            cls.plot_gammas_ternary,  # Step 7: Plot gamma vs delta_o with temperature
             cls.plot_phase_diagram,    # Step 8: Plot the combined figures
+            )
         )
 
         # Define outputs
-        spec.expose_outputs(RelaxWorkflow, namespace='bulk')
-        spec.output_namespace('relaxations', dynamic=True)
-        spec.output_namespace('stable_structures', dynamic=True)
+        spec.expose_outputs(
+            VaspWorkflow, 
+            namespace='bulk'
+        )
+        spec.output_namespace(
+            'relaxations', 
+            dynamic=True
+        )
+        spec.output_namespace(
+            'stable_structures', 
+            dynamic=True
+        )
 
         # Define exit codes for error handling
-        spec.exit_code(201, 'ERROR_GENERATE_SLABS_FAILED', message='Slab generation failed.')
-        spec.exit_code(202, 'ERROR_RELAX_SLABS_FAILED', message='Relaxation of slabs failed.')
-        spec.exit_code(203, 'ERROR_RELAX_BULK_FAILED', message='Relaxation of bulk structure failed.')
+        spec.exit_code(
+            201, 
+            'ERROR_GENERATE_SLABS_FAILED', 
+            message='Slab generation failed.'
+        )
+        spec.exit_code(
+            202, 
+            'ERROR_RELAX_SLABS_FAILED', 
+            message='Relaxation of slabs failed.'
+        )
+        spec.exit_code(
+            203, 
+            'ERROR_RELAX_BULK_FAILED', 
+            message='Relaxation of bulk structure failed.'
+        )
+
+    def is_binary(self):
+
+        #* Check if the bulk structure is binary or ternary
+        num_atoms = len(set(self.inputs.bulk_structure.get_ase().get_chemical_symbols()))
+
+        if num_atoms == 2:
+            return True
+        elif num_atoms == 3:
+            return False
+        else:
+            raise ValueError("Bulk structure must contain two or three elements.")
 
     def run_relax_bulk(self):
         """
@@ -95,23 +272,10 @@ class AiiDATEROS(WorkChain):
             # Get INCAR parameters for bulk relaxation
             incar_bulk = self.inputs.incar_parameters_bulk
 
-            # Define relaxation settings for bulk
-            relax_settings_bulk = AttributeDict({
-                'algo': Str('cg'),
-                'force_cutoff': Float(self.inputs.force_cutoff.value),
-                'positions': Bool(True),
-                'shape': Bool(True),
-                'volume': Bool(True),
-                'steps': Int(self.inputs.steps.value),
-                'perform': Bool(True),
-                'perform_static': Bool(False),
-            })
-
             # Get the VASP builder with bulk INCAR parameters
             builder = self.get_vasp_builder(
                 structure=self.inputs.bulk_structure,
                 incar_parameters=incar_bulk,
-                relax_settings=relax_settings_bulk,
                 kpoint_density=self.inputs.kpoints_precision.value,
                 label='relax_bulk_structure',
                 description='Bulk relaxation of the material'
@@ -136,7 +300,7 @@ class AiiDATEROS(WorkChain):
             return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
         # Expose bulk relaxation outputs
-        self.out_many(self.exposed_outputs(self.ctx.relax_bulk, RelaxWorkflow, namespace='bulk'))
+        self.out_many(self.exposed_outputs(self.ctx.relax_bulk, VaspWorkflow, namespace='bulk'))
         self.report('Bulk relaxation completed successfully.')
 
     def generate_slabs(self):
@@ -152,7 +316,7 @@ class AiiDATEROS(WorkChain):
                 self.report('Bulk relaxation did not finish successfully.')
                 return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
-            relaxed_bulk = relax_bulk_calc.outputs.relax.structure
+            relaxed_bulk = relax_bulk_calc.outputs.structure
 
             # Convert AiiDA StructureData to pymatgen Structure
             bulk_structure = relaxed_bulk.get_pymatgen()
@@ -205,25 +369,12 @@ class AiiDATEROS(WorkChain):
 
             try:
                 # Get INCAR parameters for slab relaxation
-                incar_slabs = self.inputs.incar_parameters_slabs
-
-                # Define relaxation settings for slabs
-                relax_settings_slabs = AttributeDict({
-                    'algo': Str('cg'),
-                    'force_cutoff': Float(self.inputs.force_cutoff.value),
-                    'positions': Bool(True),
-                    'shape': Bool(False),
-                    'volume': Bool(False),
-                    'steps': Int(self.inputs.steps.value),
-                    'perform': Bool(True),
-                    'perform_static': Bool(False),
-                })
+                incar_slabs = self.inputs.incar_parameters_slab
 
                 # Get the VASP builder with slab INCAR parameters
                 builder = self.get_vasp_builder(
                     structure=slab,
                     incar_parameters=incar_slabs,
-                    relax_settings=relax_settings_slabs,
                     slab=True,
                     kpoint_density=self.inputs.kpoints_precision.value,
                     label=f'relax_slab_{n}',
@@ -268,7 +419,144 @@ class AiiDATEROS(WorkChain):
 
             self.report(f'Relaxation for slab_{n} completed successfully.')
 
-    def result_dict(self):
+    def result_binary(self):
+        """
+        Calculate the surface total energy for all slab terminations and store the results.
+
+        Parameters:
+        workchain_ctx: AiiDA WorkChain context containing VaspCalculation nodes.
+        bulk_structure (StructureData): AiiDA StructureData of the bulk.
+        E_bulk (float): DFT total energy of the bulk.
+
+        Returns:
+        dict: Dictionary containing lower and upper surface Gibbs free energy values for each termination.
+        """
+
+        self.report('Calculating the surface total energy for a binary system.')
+
+        self.report('Starting calculation of surface total energy for a binary system.')
+
+        delta_Hf = self.inputs.HF_bulk.value
+        E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
+        bulk_structure = self.inputs.bulk_structure
+
+        # Calculate limits for the chemical potential of oxygen
+        lower_limit = 0.5 * delta_Hf
+        upper_limit = 0
+
+        self.report('Calculated limits for the chemical potential of oxygen.')
+
+        bulk_structure = bulk_structure.get_ase()
+        element_counts = Counter(atom.symbol for atom in bulk_structure)
+        gcd_value = np.gcd.reduce(list(element_counts.values()))
+        
+        for element, natoms in element_counts.items():
+            if element == 'O':
+                y = natoms / gcd_value
+            else:
+                x = natoms / gcd_value
+
+        self.report('Determined the minimal composition of the bulk structure.')
+
+        mu_O_values = self.ctx.mu_O_values = [lower_limit, upper_limit]
+        gammas = {}
+        for i, calc in enumerate(self.ctx.relax_calcs):
+            self.report(f'Processing relaxation calculation {i+1}.')
+
+            slab_structure = calc.outputs.structure
+            slab_structure_ase = slab_structure.get_ase()
+            E_slab = calc.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
+
+            element_symbols = list(set(atom.symbol for atom in slab_structure_ase if atom.symbol != 'O'))
+            if len(element_symbols) != 1:
+                raise ValueError("Structure must contain exactly one non-oxygen element.")
+            element = element_symbols[0]
+
+            N_element_slab = len([atom for atom in slab_structure_ase if atom.symbol == element])
+            N_O_slab = len([atom for atom in slab_structure_ase if atom.symbol == 'O'])
+
+            if N_element_slab == 0 or N_O_slab == 0:
+                raise ValueError("Number of non-oxygen or oxygen atoms cannot be zero.")
+
+            lengths = slab_structure_ase.get_cell_lengths_and_angles()
+            if lengths[0] <= 0 or lengths[1] <= 0:
+                raise ValueError("Cell dimensions must be positive values.")
+
+            A = lengths[0] * lengths[1]  # Area is the product of the x and y coordinates of the cell
+
+            if A == 0:
+                raise ValueError("Surface area cannot be zero.")
+
+            E_bulk_per_fu = E_bulk / gcd_value  # Energy per formula unit
+
+            gamma_values = []
+            for mu_O in mu_O_values:
+                gamma = (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O) / (2 * A)
+                gamma = gamma * 1.602176634e-19 * 1e20 # eV/Å² to J/m²
+                gamma_values.append(gamma)
+
+            self.report(f'Calculated surface Gibbs free energy for termination {i+1}.')
+
+            gammas[f'Termination {i+1}'] = {
+            'gamma_lower': gamma_values[0],
+            'gamma_upper': gamma_values[1]
+            }
+
+        self.report(f'Calculated surface Gibbs free energy for termination {i+1}.')
+
+        self.ctx.gammas_binary = gammas
+        self.report('Completed calculation of surface total energy for all terminations.')
+
+    def plot_gammas_binary(self):
+        """
+        Plot surface energies as a function of oxygen chemical potential for different terminations.
+        All data is defined within the function and saves the plot automatically.
+        """
+        # Define the data inside the function
+
+        gammas = self.ctx.gammas_binary
+        mu_O_values = self.ctx.mu_O_values
+
+        # Plot settings
+        title = "Surface Energy vs O Chemical Potential"
+        figsize = (10, 6)
+
+        # Create figure and axis
+        fig, ax = plt.subplots(figsize=figsize)
+
+        # Create color cycle for different terminations
+        colors = plt.cm.tab10(np.linspace(0, 1, len(gammas)))
+
+        # Plot lines for each termination
+        for (term_name, term_data), color in zip(gammas.items(), colors):
+            # Create points for the line
+            x_points = mu_O_values
+            y_points = [term_data['gamma_lower'], term_data['gamma_upper']]
+
+            # Plot the line
+            ax.plot(x_points, y_points, '-', label=term_name, color=color, linewidth=2)
+
+            # Add points to show exact values
+            ax.plot(x_points, y_points, 'o', color=color, markersize=6)
+
+        # Customize the plot
+        ax.set_xlabel('O Chemical Potential (eV)', fontsize=12)
+        ax.set_ylabel('Surface Energy (eV/Å²)', fontsize=12)
+        ax.set_title(title, fontsize=14, pad=15)
+
+        # Add grid
+        ax.grid(True, linestyle='--', alpha=0.7)
+
+        # Add legend
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+        # Adjust layout to prevent cutting off the legend
+        plt.tight_layout()
+
+        # Save the figure
+        plt.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/surface_energy_plot.pdf', bbox_inches='tight', dpi=300)
+
+    def result_ternary(self):
 
         self.ctx.dict_results = {}
         for n, calc in enumerate(self.ctx.relax_calcs, start=1):
@@ -298,13 +586,14 @@ class AiiDATEROS(WorkChain):
 
             write_FolderData(self.ctx.relax_bulk.outputs.retrieved, 'vasprun.xml')
             outcar_ase_bulk = read('vasprun.xml', format='vasp-xml')
+            divide_minimal_comp = self.check_minimal_composition(StructureData(ase=outcar_ase_bulk))
             elements = outcar_ase_bulk.get_chemical_symbols()
             self.ctx.unique_symbols = unique_symbols = list(dict.fromkeys(elements))
-            nAg_bulk = outcar_ase_bulk.get_chemical_symbols().count(unique_symbols[0])/self.inputs.divide_to_get_minimal_bulk_composition.value
-            nMe_bulk = outcar_ase_bulk.get_chemical_symbols().count(unique_symbols[1])/self.inputs.divide_to_get_minimal_bulk_composition.value
-            nO_bulk = outcar_ase_bulk.get_chemical_symbols().count(unique_symbols[2])/self.inputs.divide_to_get_minimal_bulk_composition.value
+            nAg_bulk = outcar_ase_bulk.get_chemical_symbols().count(unique_symbols[0])/divide_minimal_comp
+            nMe_bulk = outcar_ase_bulk.get_chemical_symbols().count(unique_symbols[1])/divide_minimal_comp
+            nO_bulk = outcar_ase_bulk.get_chemical_symbols().count(unique_symbols[2])/divide_minimal_comp
             stoichiometry = [nAg_bulk, nMe_bulk, nO_bulk]
-            energy_bulk = outcar_ase_bulk.get_potential_energy()*ureg["eV"]/self.inputs.divide_to_get_minimal_bulk_composition.value
+            energy_bulk = outcar_ase_bulk.get_potential_energy()*ureg["eV"]/divide_minimal_comp
             composition_bulk = [nAg_bulk, nMe_bulk, nO_bulk]
             os.remove('vasprun.xml')
 
@@ -406,7 +695,7 @@ class AiiDATEROS(WorkChain):
             elif n == 1:
                 self.out(f'stable_structures.{calc.label}', structure_dict)
 
-    def plot_gamma_delta_o_withtemp(self):
+    def plot_gammas_ternary(self):
     
         import matplotlib.pyplot as plt
         import seaborn as sns
@@ -593,9 +882,8 @@ class AiiDATEROS(WorkChain):
 
     # Helper Methods
     def get_vasp_builder(
-        self, structure, incar_parameters, relax_settings, kpoint_density,
-        label, description, additional_settings=None, clean_workdir=True, slab=False,
-        change_submission_script=False
+        self, structure, incar_parameters, kpoint_density,
+        label, description, clean_workdir=False, slab=False,
     ):
         """
         Helper method to configure the VASP builder.
@@ -618,9 +906,6 @@ class AiiDATEROS(WorkChain):
         kpoints.set_kpoints_mesh(kpoints_list)
         builder.kpoints = kpoints
 
-        # Set relaxation settings
-        builder.relax = relax_settings
-
         # Set code
         builder.code = self.inputs.code
 
@@ -632,10 +917,7 @@ class AiiDATEROS(WorkChain):
         builder.metadata.description = description
 
         # Set settings (parser settings)
-        settings = self.inputs.parser_settings.get_dict()
-        if additional_settings: #! Tirar isso!
-            settings.update(additional_settings)
-        builder.settings = Dict(dict=settings)
+        builder.settings = self.inputs.parser_settings
 
         builder.clean_workdir = Bool(clean_workdir)
 
@@ -657,3 +939,22 @@ class AiiDATEROS(WorkChain):
         except Exception as e:
             self.report(f'Failed to set potential mapping: {e}')
             raise
+
+    def check_minimal_composition(self, bulk_structure):
+        """
+        Check if the bulk structure has the minimal composition.
+
+        Parameters:
+        bulk_structure (StructureData): AiiDA StructureData of the bulk.
+
+        Returns:
+        int: Value by which the number of atoms needs to be divided to get the minimal stoichiometry.
+        """
+        # Convert StructureData to ASE Atoms
+        bulk_structure = bulk_structure.get_ase()
+        element_counts = Counter(atom.symbol for atom in bulk_structure)
+
+        # Find the greatest common divisor for the number of atoms of each element
+        gcd = np.gcd.reduce(list(element_counts.values()))
+
+        return gcd

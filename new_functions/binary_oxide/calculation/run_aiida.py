@@ -23,7 +23,6 @@ from aiida.orm import (
     StructureData,
     Dict,
     Float,
-    Int,
     Str,
     List
 )
@@ -35,11 +34,13 @@ from aiida.orm import (
 # Paths and File Names
 BULK_STRUCTURE_PATH = 'ag2o.vasp'
 POTENTIAL_FAMILY = 'PBE'  # Example: 'PBE', 'GGA', etc.
-#CODE_LABEL = 'VASPVTST-6.4.1@bohr-vtst'
-CODE_LABEL = 'VASP-6.4.1@cluster02'
+CODE_LABEL = 'VASPVTST-6.4.1@bohr-vtst'
+#CODE_LABEL = 'VASP-6.4.1@cluster02'
 
 # Thermodynamic Parameters
-HF_BULK = -0.314 * 6  # Heat of formation for bulk
+HF_BULK = -0.314 * 6 # Heat of formation for bulk. Must be in eV per formula unit.
+
+# Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
 TOTAL_ENERGY_FIRST_ELEMENT = -2.8289  # Total energy for the first element (e.g., if the structure is Ag3PO4, this is the energy of Ag)
 TOTAL_ENERGY_O2 = -9.82  # Total energy for O2 molecule
 
@@ -52,6 +53,7 @@ INCAR_PARAMETERS_BULK = {'incar': {
     'ISPIN': 1,
     'ISIF': 3,
     'IBRION': 2,
+    'NSW': 100,
     'EDIFFG': -0.01,
     'LREAL': 'Auto',
     'PREC': 'Accurate',
@@ -73,7 +75,8 @@ INCAR_PARAMETERS_SLAB = {'incar': {
     'ISPIN': 1,
     'ISIF': 2,
     'IBRION': 2,
-    'EDIFFG': -0.01,
+    'NSW': 1000,
+    'EDIFFG': -0.05,
     'LREAL': 'Auto',
     'PREC': 'Accurate',
     'NELM': 60,
@@ -87,7 +90,7 @@ INCAR_PARAMETERS_SLAB = {'incar': {
 
 # Workflow Settings
 WORKFLOW_SETTINGS = {
-    'kpoints_precision': 0.4,    # K-points mesh density
+    'kpoints_precision': 0.3,    # K-points mesh density
 }
 
 # Potential Mapping
@@ -108,18 +111,18 @@ PARSER_SETTINGS = {'parser_settings': {
 }
 
 # Computer Options
-#COMPUTER_OPTIONS = {
-#    'resources': {
-#        'num_machines': 1,
-#        'num_cores_per_machine': 40
-#    },
-#    'queue_name': 'par40',
-#}
 COMPUTER_OPTIONS = {
     'resources': {
-        'tot_num_mpiprocs': 24
+        'num_machines': 1,
+        'num_cores_per_machine': 40
     },
+    'queue_name': 'par40',
 }
+#COMPUTER_OPTIONS = {
+#    'resources': {
+#        'tot_num_mpiprocs': 24
+#    },
+#}
 
 # Slab Generation Parameters
 SLAB_PARAMETERS = {

@@ -127,6 +127,7 @@ def check_minimal_composition(bulk_structure):
     # Convert StructureData to ASE Atoms
     bulk_structure = bulk_structure.get_ase()
     element_counts = Counter(atom.symbol for atom in bulk_structure)
+    print(element_counts)
 
     # Find the greatest common divisor for the number of atoms of each element
     gcd = np.gcd.reduce(list(element_counts.values()))
@@ -135,11 +136,7 @@ def check_minimal_composition(bulk_structure):
 
 def main():
     # Load bulk structure from VASP file
-    bulk_structure = StructureData(ase=read("ag2o_bulk.vasp"))
-    
-    # Load multiple slab structures representing different surface terminations
-    slab_files = ["ag2o_slab_termination1.vasp", "ag2o_slab_termination2.vasp", "ag2o_slab_termination3.vasp"]
-    slabs = [StructureData(ase=read(slab_file)) for slab_file in slab_files]
+    bulk_structure = StructureData(ase=read("ag2o.vasp"))
     
     # Example values
     E_slabs = [-1000.0, -1200.0, -1100.0]  # DFT total energies of the slabs, in eV
@@ -147,16 +144,9 @@ def main():
     delta_Hf = -4.0  # Formation enthalpy at 0 K and 0 Pa, in eV
     E_total_O2 = -8.0  # Total energy of O2, in eV
 
-    # Calculate limits for the chemical potential of oxygen
-    lower_limit, upper_limit = chemical_potential_limits(delta_Hf, E_total_O2)
-    print("Chemical potential limits for O:", lower_limit, "to", upper_limit, "eV")
-
     # Check minimal composition of the bulk structure
     gcd_value = check_minimal_composition(bulk_structure)
     print("Value to divide the number of atoms by to get minimal stoichiometry:", gcd_value)
-
-    # Plot surface Gibbs free energy as a function of the chemical potential of O for all slab terminations
-    plot_surface_gibbs_free_energy_all(slabs, bulk_structure, E_slabs, E_bulk, lower_limit, upper_limit, gcd_value)
 
 if __name__ == "__main__":
     main()

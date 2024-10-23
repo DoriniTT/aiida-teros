@@ -23,69 +23,74 @@ from aiida.orm import (
     StructureData,
     Dict,
     Float,
-    Int,
     Str,
     List
 )
-from AiiDA_teros import AiiDATEROSWorkChain
 
 # ================================================
 # Configuration Section
 # ================================================
 
 # Paths and File Names
-BULK_STRUCTURE_PATH = 'path/to/your/bulk_structure.vasp'
-POTENTIAL_FAMILY = 'your_potential_family_here'  # Example: 'PBE', 'GGA', etc.
-CODE_LABEL = 'your_aiida_code@label_here'
-PKS_FILE = 'pks.txt'  # File to store submitted WorkChain PKs
+BULK_STRUCTURE_PATH = 'ag2o.vasp'
+POTENTIAL_FAMILY = 'PBE'  # Example: 'PBE', 'GGA', etc.
+CODE_LABEL = 'VASPVTST-6.4.1@bohr-vtst'
+#CODE_LABEL = 'VASP-6.4.1@cluster02'
 
 # Thermodynamic Parameters
-DIVIDE_TO_GET_MIN_COMPOSITION = 2  # For Ag3PO4
-HF_BULK = -10.979718545  # Heat of formation for bulk
-TOTAL_ENERGY_FIRST_ELEMENT = -2.8289  # Total energy for the first element (e.g., Ag)
+HF_BULK = -0.314 * 6 # Heat of formation for bulk. Must be in eV per formula unit.
+
+# Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
+TOTAL_ENERGY_FIRST_ELEMENT = -2.8289  # Total energy for the first element (e.g., if the structure is Ag3PO4, this is the energy of Ag)
 TOTAL_ENERGY_O2 = -9.82  # Total energy for O2 molecule
 
-# INCAR Parameters for Bulk and Slab Relaxations
-INCAR_PARAMETERS = {
-    'bulk': {
-        'ISMEAR': 0,
-        'SIGMA': 0.01,
-        'ENCUT': 550,
-        'NCORE': 2,
-        'ISPIN': 1,
-        'LREAL': 'Auto',
-        'PREC': 'Accurate',
-        'NELM': 60,
-        'NELMIN': 6,
-        'EDIFF': 1e-5,
-        'LWAVE': True,
-        'LORBIT': 11,
-        'IVDW': 12,
-    },
-    'slab': {
-        'ISMEAR': 0,
-        'SIGMA': 0.01,
-        'ENCUT': 550,
-        'NCORE': 2,
-        'ISPIN': 1,
-        'LREAL': 'Auto',
-        'PREC': 'Accurate',
-        'NELM': 60,
-        'NELMIN': 6,
-        'EDIFF': 1e-5,
-        'LWAVE': True,
-        'LORBIT': 11,
-        'IVDW': 12,
+# INCAR Parameters for Bulk Relaxations
+INCAR_PARAMETERS_BULK = {'incar': {
+    'ISMEAR': 0,
+    'SIGMA': 0.01,
+    'ENCUT': 550,
+    'NCORE': 2,
+    'ISPIN': 1,
+    'ISIF': 3,
+    'IBRION': 2,
+    'NSW': 100,
+    'EDIFFG': -0.01,
+    'LREAL': 'Auto',
+    'PREC': 'Accurate',
+    'NELM': 60,
+    'NELMIN': 6,
+    'EDIFF': 1e-5,
+    'LWAVE': True,
+    'LORBIT': 11,
+    'IVDW': 12,
+    }
+}
+
+# INCAR Parameters for Slab Relaxations
+INCAR_PARAMETERS_SLAB = {'incar': {
+    'ISMEAR': 0,
+    'SIGMA': 0.01,
+    'ENCUT': 550,
+    'NCORE': 2,
+    'ISPIN': 1,
+    'ISIF': 2,
+    'IBRION': 2,
+    'NSW': 1000,
+    'EDIFFG': -0.05,
+    'LREAL': 'Auto',
+    'PREC': 'Accurate',
+    'NELM': 60,
+    'NELMIN': 6,
+    'EDIFF': 1e-5,
+    'LWAVE': True,
+    'LORBIT': 11,
+    'IVDW': 12,
     }
 }
 
 # Workflow Settings
 WORKFLOW_SETTINGS = {
-    'force_cutoff': 0.01,        # Force convergence criterion in eV/Å
-    'steps': 1000,               # Maximum number of relaxation steps
     'kpoints_precision': 0.3,    # K-points mesh density
-    'phase_diagram_precision': 500,  # Precision for phase diagram calculations
-    'path_to_graphs': os.getcwd(),    # Directory to save generated plots
 }
 
 # Potential Mapping
@@ -96,12 +101,13 @@ POTENTIAL_MAPPING = {
 }
 
 # Parser Settings
-PARSER_SETTINGS = {
+PARSER_SETTINGS = {'parser_settings': {
     'add_energies': True,
     'add_trajectory': True,
     'add_forces': True,
     'add_structure': True,
     'add_kpoints': True,
+    }
 }
 
 # Computer Options
@@ -112,12 +118,16 @@ COMPUTER_OPTIONS = {
     },
     'queue_name': 'par40',
 }
+#COMPUTER_OPTIONS = {
+#    'resources': {
+#        'tot_num_mpiprocs': 24
+#    },
+#}
 
 # Slab Generation Parameters
 SLAB_PARAMETERS = {
     'miller_indices': [1, 1, 0],  # Example: [1, 1, 0]
     'min_slab_thickness': 10.0,   # Minimum slab thickness in Å
-    'vacuum': 15.0,                # Vacuum spacing in Å
 }
 
 # ================================================
@@ -214,6 +224,8 @@ def load_vasp_code(code_label):
 # Main Execution
 # ================================================
 
+from aiida_teros.new_functions.binary_oxide.calculation.AiiDA_teros import AiiDATEROSWorkChain
+
 def main():
     # Load the AiiDA profile
     try:
@@ -241,10 +253,8 @@ def main():
     inputs = {
         'code': load_vasp_code(CODE_LABEL),
         'bulk_structure': bulk_structure,
-        'incar_parameters_bulk': Dict(dict=INCAR_PARAMETERS['bulk']),
-        'incar_parameters_slabs': Dict(dict=INCAR_PARAMETERS['slab']),
-        'force_cutoff': Float(WORKFLOW_SETTINGS['force_cutoff']),
-        'steps': Int(WORKFLOW_SETTINGS['steps']),
+        'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
+        'incar_parameters_slab': INCAR_PARAMETERS_SLAB,
         'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
         'potential_mapping': Dict(dict=POTENTIAL_MAPPING),
         'potential_family': Str(POTENTIAL_FAMILY),
@@ -252,13 +262,9 @@ def main():
         'computer_options': Dict(dict=COMPUTER_OPTIONS),
         'miller_indices': List(list=SLAB_PARAMETERS['miller_indices']),
         'min_slab_thickness': Float(SLAB_PARAMETERS['min_slab_thickness']),
-        'vacuum': Float(SLAB_PARAMETERS['vacuum']),
-        'divide_to_get_minimal_bulk_composition': Int(DIVIDE_TO_GET_MIN_COMPOSITION),
-        'precision_phase_diagram': Int(WORKFLOW_SETTINGS['phase_diagram_precision']),
         'HF_bulk': Float(HF_BULK),
         'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
         'total_energy_o2': Float(TOTAL_ENERGY_O2),
-        'path_to_graphs': Str(WORKFLOW_SETTINGS['path_to_graphs']),
     }
 
     # Submit the WorkChain
@@ -267,6 +273,7 @@ def main():
         future = submit(AiiDATEROSWorkChain, **inputs)
         print(f'Submitted AiiDATEROSWorkChain with PK {future.pk}')
 
+        PKS_FILE = 'pks.txt'  # File to store submitted WorkChain PKs
         # Save the PK of the WorkChain for future reference
         with open(PKS_FILE, 'a') as f:
             f.write(f'{future.pk}\n')

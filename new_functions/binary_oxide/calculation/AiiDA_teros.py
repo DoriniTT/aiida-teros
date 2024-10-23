@@ -437,27 +437,29 @@ class AiiDATEROSWorkChain(WorkChain):
         self.report('Starting calculation of surface total energy for a binary system.')
 
         delta_Hf = self.inputs.HF_bulk.value
-        E_total_O2 = self.inputs.total_energy_o2.value
-        E_bulk = self.inputs.total_energy_first_element.value
+        E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
         bulk_structure = self.inputs.bulk_structure
 
         # Calculate limits for the chemical potential of oxygen
-        if delta_Hf >= 0 or E_total_O2 >= 0:
-            raise ValueError("Formation enthalpy and total energy of O2 must be negative values.")
         lower_limit = 0.5 * delta_Hf
-        upper_limit = 0.5 * E_total_O2
+        upper_limit = 0
 
         self.report('Calculated limits for the chemical potential of oxygen.')
 
         bulk_structure = bulk_structure.get_ase()
         element_counts = Counter(atom.symbol for atom in bulk_structure)
         gcd_value = np.gcd.reduce(list(element_counts.values()))
+        
+        for element, natoms in element_counts.items():
+            if element == 'O':
+                y = natoms / gcd_value
+            else:
+                x = natoms / gcd_value
 
         self.report('Determined the minimal composition of the bulk structure.')
 
-        mu_O_values = [lower_limit, upper_limit]
+        mu_O_values = self.ctx.mu_O_values = [lower_limit, upper_limit]
         gammas = {}
-        gamma_values = []
         for i, calc in enumerate(self.ctx.relax_calcs):
             self.report(f'Processing relaxation calculation {i+1}.')
 
@@ -487,18 +489,18 @@ class AiiDATEROSWorkChain(WorkChain):
 
             E_bulk_per_fu = E_bulk / gcd_value  # Energy per formula unit
 
+            gamma_values = []
             for mu_O in mu_O_values:
-                gamma = (E_slab - N_element_slab * E_bulk_per_fu + (2 * N_element_slab - N_O_slab) * mu_O) / (2 * A)
-            if not np.isfinite(gamma):
-                raise ValueError("Calculated surface Gibbs free energy is not finite. Check input values.")
-            gamma_values.append(gamma)
+                gamma = (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O) / (2 * A)
+                gamma = gamma * 1.602176634e-19 * 1e20 # eV/Å² to J/m²
+                gamma_values.append(gamma)
 
             self.report(f'Calculated surface Gibbs free energy for termination {i+1}.')
 
-        gammas[f'Termination {i+1}'] = {
-        'gamma_lower': gamma_values[0],
-        'gamma_upper': gamma_values[1]
-        }
+            gammas[f'Termination {i+1}'] = {
+            'gamma_lower': gamma_values[0],
+            'gamma_upper': gamma_values[1]
+            }
 
         self.report(f'Calculated surface Gibbs free energy for termination {i+1}.')
 
@@ -506,37 +508,53 @@ class AiiDATEROSWorkChain(WorkChain):
         self.report('Completed calculation of surface total energy for all terminations.')
 
     def plot_gammas_binary(self):
+        """
+        Plot surface energies as a function of oxygen chemical potential for different terminations.
+        All data is defined within the function and saves the plot automatically.
+        """
+        # Define the data inside the function
 
-        """
-        Plot the surface Gibbs free energies for all slab terminations.
-    
-        Parameters:
-        gammas (dict): Dictionary containing lower and upper surface Gibbs free energy values for each termination.
-        """
         gammas = self.ctx.gammas_binary
+        mu_O_values = self.ctx.mu_O_values
 
-        terminations = list(gammas.keys())
-        gamma_lower_values = [gammas[termination]['gamma_lower'] for termination in terminations]
-        gamma_upper_values = [gammas[termination]['gamma_upper'] for termination in terminations]
-        
-        x = np.arange(len(terminations))
-        
-        fig, ax = plt.subplots()
-        ax.plot(x, gamma_lower_values, marker='o', linestyle='-', label='Gamma Lower')
-        ax.plot(x, gamma_upper_values, marker='o', linestyle='-', label='Gamma Upper')
-    
-        ax.set_xlabel('Terminations')
-        ax.set_ylabel('Surface Gibbs Free Energy (eV/Angstrom^2)')
-        ax.set_title('Surface Gibbs Free Energy for Different Terminations')
-        ax.set_xticks(x)
-        ax.set_xticklabels(terminations)
-        ax.legend()
-    
-        plt.xticks(rotation=45, ha='right')
+        # Plot settings
+        title = "Surface Energy vs O Chemical Potential"
+        figsize = (10, 6)
+
+        # Create figure and axis
+        fig, ax = plt.subplots(figsize=figsize)
+
+        # Create color cycle for different terminations
+        colors = plt.cm.tab10(np.linspace(0, 1, len(gammas)))
+
+        # Plot lines for each termination
+        for (term_name, term_data), color in zip(gammas.items(), colors):
+            # Create points for the line
+            x_points = mu_O_values
+            y_points = [term_data['gamma_lower'], term_data['gamma_upper']]
+
+            # Plot the line
+            ax.plot(x_points, y_points, '-', label=term_name, color=color, linewidth=2)
+
+            # Add points to show exact values
+            ax.plot(x_points, y_points, 'o', color=color, markersize=6)
+
+        # Customize the plot
+        ax.set_xlabel('O Chemical Potential (eV)', fontsize=12)
+        ax.set_ylabel('Surface Energy (eV/Å²)', fontsize=12)
+        ax.set_title(title, fontsize=14, pad=15)
+
+        # Add grid
+        ax.grid(True, linestyle='--', alpha=0.7)
+
+        # Add legend
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+        # Adjust layout to prevent cutting off the legend
         plt.tight_layout()
-        plt.grid(True)
-        sb.run([f'mkdir -p {self.inputs.path_to_graphs.value}/thermo_results/binary'], shell=True)
-        plt.savefig(f"{self.inputs.path_to_graphs.value}/thermo_results/binary/surface_free_energies.pdf", bbox_inches="tight")
+
+        # Save the figure
+        plt.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/surface_energy_plot.pdf', bbox_inches='tight', dpi=300)
 
     def result_ternary(self):
 
