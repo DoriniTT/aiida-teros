@@ -92,6 +92,13 @@ class AiiDATEROSWorkChain(WorkChain):
             valid_type=StructureData, 
             help='Bulk material structure.'
         )
+
+        spec.input_namespace(
+            'terminations', 
+            valid_type=StructureData, 
+            required=False,
+            help='Specific terminations to calculate.',
+        )
         
         # INCAR parameters
         spec.input_namespace(
@@ -307,44 +314,50 @@ class AiiDATEROSWorkChain(WorkChain):
         """
         Generate slab structures from the relaxed bulk structure using pymatgen's SlabGenerator.
         """
-        self.report('Generating slab structures from relaxed bulk structure.')
 
         try:
-            # Retrieve the relaxed bulk structure
-            relax_bulk_calc = self.ctx.relax_bulk
-            if not relax_bulk_calc.is_finished_ok:
-                self.report('Bulk relaxation did not finish successfully.')
-                return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
-            relaxed_bulk = relax_bulk_calc.outputs.structure
+            if self.inputs.terminations: #* If specific terminations are requested
+                self.ctx.slabs = list(self.inputs.terminations.values())
+                self.report('The user requested specific terminations.')
 
-            # Convert AiiDA StructureData to pymatgen Structure
-            bulk_structure = relaxed_bulk.get_pymatgen()
-            miller = tuple(self.inputs.miller_indices.get_list())  # e.g., [1, 1, 1]
-            min_slab_thickness = self.inputs.min_slab_thickness.value  # in Angstroms
-            vacuum = self.inputs.vacuum.value  # in Angstroms
+            else:
+                self.report('Generating slab structures from relaxed bulk structure.')
+                # Retrieve the relaxed bulk structure
+                relax_bulk_calc = self.ctx.relax_bulk
+                if not relax_bulk_calc.is_finished_ok:
+                    self.report('Bulk relaxation did not finish successfully.')
+                    return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
-            slab_generator = SlabGenerator(
-                bulk_structure,
-                miller,
-                min_slab_thickness,
-                vacuum,
-                lll_reduce=True,
-                center_slab=True
-            )
-            slabs = slab_generator.get_slabs(symmetrize=True)
-            all_structures = []
-            for slab in slabs:
-                slab = slab.get_orthogonal_c_slab()
-                ase_atoms = AseAtomsAdaptor().get_atoms(slab)
-                all_structures.append(StructureData(ase=ase_atoms))
+                relaxed_bulk = relax_bulk_calc.outputs.structure
 
-            if not all_structures:
-                self.report('No slabs were generated.')
-                return self.exit_codes.ERROR_GENERATE_SLABS_FAILED
+                # Convert AiiDA StructureData to pymatgen Structure
+                bulk_structure = relaxed_bulk.get_pymatgen()
+                miller = tuple(self.inputs.miller_indices.get_list())  # e.g., [1, 1, 1]
+                min_slab_thickness = self.inputs.min_slab_thickness.value  # in Angstroms
+                vacuum = self.inputs.vacuum.value  # in Angstroms
 
-            self.ctx.slabs = all_structures
-            self.report(f'Generated {len(all_structures)} slab structures.')
+                slab_generator = SlabGenerator(
+                    bulk_structure,
+                    miller,
+                    min_slab_thickness,
+                    vacuum,
+                    lll_reduce=True,
+                    center_slab=True
+                )
+                slabs = slab_generator.get_slabs(symmetrize=True)
+                all_structures = []
+                for slab in slabs:
+                    slab = slab.get_orthogonal_c_slab()
+                    ase_atoms = AseAtomsAdaptor().get_atoms(slab)
+                    all_structures.append(StructureData(ase=ase_atoms))
+
+                if not all_structures:
+                    self.report('No slabs were generated.')
+                    return self.exit_codes.ERROR_GENERATE_SLABS_FAILED
+
+                self.ctx.slabs = all_structures
+                self.report(f'Generated {len(all_structures)} slab structures.')
 
             # Assign slabs to dynamic output namespace
             structure_dict = {}

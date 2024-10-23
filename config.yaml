@@ -13,6 +13,12 @@ total_energies:
   total_energy_first_element: -2.8289  # Energy of the first element (e.g., Ag)
   total_energy_o2: -9.82  # Energy for O2 molecule
 
+# OPTIONAL: Give the path of specific terminations that you want to study.
+terminations:
+  slab1: "termination1.vasp"
+  slab2: "termination2.vasp"
+  slab3: "termination3.vasp"
+
 # INCAR Parameters for Bulk Relaxations
 incar_parameters_bulk:
   ISMEAR: 0

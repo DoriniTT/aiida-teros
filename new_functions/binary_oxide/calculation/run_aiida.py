@@ -64,6 +64,9 @@ PARSER_SETTINGS = config['parser_settings']
 COMPUTER_OPTIONS = config['computer_options']
 SLAB_PARAMETERS = config['slab_parameters']
 
+dict_terminations = config['terminations']
+TERMINATIONS = {struc: StructureData(ase=read(termination)) for struc, termination in dict_terminations.items()} #* Load terminations
+
 # ================================================
 # Helper Functions
 # ================================================
@@ -187,6 +190,7 @@ def main():
     inputs = {
         'code': load_vasp_code(CODE_LABEL),
         'bulk_structure': bulk_structure,
+        'terminations': TERMINATIONS,
         'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
         'incar_parameters_slab': INCAR_PARAMETERS_SLAB,
         'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
