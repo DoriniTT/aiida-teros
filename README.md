@@ -58,7 +58,7 @@ Before using AiiDA-TEROS, ensure you have the following software and packages in
 - **pymatgen** (Python Materials Genomics)
 - **NumPy**, **Matplotlib**, **Seaborn**
 - **pint** (for unit handling)
-- **Additional Python packages**: `subprocess`, `shutil`, `os`, `time`
+- **Additional Python packages**: `subprocess`, `shutil`, `os`, `time`, `yaml`
 
 ### Note on VASP
 
@@ -87,7 +87,7 @@ It is recommended to set up a Python virtual environment to keep your dependenci
 After setting up the virtual environment, install the necessary Python packages by running:
 
   ```bash
-  pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint
+  pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint yaml
   ```
 
 4. **Set Up AiiDA and AiiDA-VASP**
@@ -106,118 +106,42 @@ Replace /path/to/your/repo with the actual path to the directory containing AiiD
 
 ## Usage
 
-The AiiDA-TEROS consists of two main scripts:
+The AiiDA-TEROS workflow consists of three main input files:
 
-- AiiDA_teros.py: Defines the AiiDA-TEROS class, implementing the workflow.
+1. **AiiDA_teros.py**: Defines the AiiDA-TEROS class, implementing the workflow.
+2. **run_aiida.py**: Submission script to run the AiiDA-TEROS with user-defined inputs.
+3. **config.yaml**: Configuration file containing all input parameters for the workflow.
 
-- run_aiida.py: Submission script to run the AiiDA-TEROS with user-defined inputs.
+### 1. Preparing Input Files
 
-1. **Preparing input files**
+- **Bulk Structure File**: Prepare a bulk structure file in VASP POSCAR format (e.g., `bulk_structure.vasp`). Place it in the same directory as the main Python scripts.
 
-   - **Bulk Structure File**
+- **Configuration File**: The `config.yaml` file contains all the necessary parameters for the workflow. Here is an overview of the sections in `config.yaml`:
 
-Prepare a bulk structure file in VASP POSCAR format (e.g., bulk_structure.vasp). Place it in the same repertory as the main python scripts.
+  - **Paths and File Names**: Defines the bulk structure path, potential family, and code label.
+  - **Thermodynamic Parameters**: Enthalpy of formation for bulk oxide.
+  - **Total Energies**: Total energies for individual elements (only necessary for ternary oxides).
+  - **INCAR Parameters**: Parameters for both bulk and slab relaxations.
+  - **Workflow Settings**: Settings related to k-point precision.
+  - **Potential Mapping**: Mapping for each element to its corresponding pseudopotential.
+  - **Parser Settings**: Settings for parsing the output.
+  - **Computer Options**: Computational resource settings such as number of machines and cores.
+  - **Slab Generation Parameters**: Parameters for slab generation, such as Miller indices and slab thickness.
 
-   - **Define INCAR parameters**
+### 2. Running the WorkChain
 
-Customize the INCAR parameters for both bulk and slab relaxation in the submission script (run_aiida.py):
+To run the workflow, use the `run_aiida.py` script. This script reads input parameters from `config.yaml` and submits the workflow to AiiDA.
 
-```python
-# INCAR Parameters for Bulk Relaxations
-INCAR_PARAMETERS_BULK = {'incar': {
-    'ISMEAR': 0,
-    'SIGMA': 0.01,
-    'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,
-    'ISIF': 3,
-    'IBRION': 2,
-    'NSW': 100,
-    'EDIFFG': -0.01,
-    'LREAL': 'Auto',
-    'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
-    'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
-    }
-}
+The `run_aiida.py` script performs the following actions:
 
-# INCAR Parameters for Slab Relaxations
-INCAR_PARAMETERS_SLAB = {'incar': {
-    'ISMEAR': 0,
-    'SIGMA': 0.01,
-    'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,
-    'ISIF': 2,
-    'IBRION': 2,
-    'NSW': 1000,
-    'EDIFFG': -0.05,
-    'LREAL': 'Auto',
-    'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
-    'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
-    }
-}
-```
+- Loads the configuration from `config.yaml`.
+- Extracts all relevant parameters, such as paths, INCAR settings, and computational resources.
+- Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
+- Sets up all the necessary inputs for the AiiDA-TEROS workflow.
+- Submits the work chain to the AiiDA daemon for execution.
+- Ensures the AiiDA daemon is running, and writes the process ID (PK) to `pks.txt` for future reference.
 
-- **Set Workflow inputs**
-
-    In run_aiida.py, configure the inputs for the workflow, such as:
-
-- **Force Cutoff**: Convergence criterion for forces.
-
-- **K-Points Precision**: The k-points mesh is automatically set using the `set_kpoints_mesh_from_density` method from AiiDA, ensuring an appropriate density of k-points for accurate Brillouin zone sampling based on the structure's size and geometry.
-
-- **Potential Mapping and Family**: The potential family and mapping are set using an auxiliary function that defines the correct potentials for the calculation. For example, to use the 'PBE' family and map potentials for silver (Ag) and oxygen (O), you would configure it as follows in the code:
-
-   ```python
-   # Set potential family and mapping
-   builder.potential_family = Str('PBE')  # Using the PBE potential family
-   builder.potential_mapping = {'Ag': 'Ag', 'O': 'O', 'P': 'P'}  # Map potentials for Ag, O, and P elements
-   ```
-
-- **Slab Generation Parameters**: Set the Miller indices, slab thickness, and vacuum spacing to define the slab’s orientation, size, and separation between periodic images.
-
-   ```python
-   SLAB_PARAMETERS = {
-       'miller_indices': [1, 1, 0],  # Example: [1, 1, 0]
-       'min_slab_thickness': 10.0,   # Minimum slab thickness in Å
-   }
-   ```
-
-- **Thermodynamic Parameters**:
-
-  #### For Binary Oxides (e.g., Ag₂O)
-  For binary oxides, you only need the enthalpy of formation (ΔH_f) in eV per formula unit. This can be calculated in advance or taken from experimental or theoretical sources.
-
-  #### For Ternary Oxides (e.g., Ag₂MoO₄)
-  For ternary oxides, there are additional considerations:
-  - Ensure the order of elements in the input file (e.g., POSCAR, CIF) is consistent with the standard notation (e.g., Ag₂MoO₄).
-  - Besides the enthalpy of formation (ΔH_f), you also need the total energies (E_tot) calculated with DFT for the first element (in this example, Ag) and for oxygen. These should be obtained using the same functional as used in the TEROS workchain.
-
-  In future updates, we plan to automate these processes within the code.
-
-- **Computer Options**: Configure computer options such as resources and queue name:
-
-   ```python
-   COMPUTER_OPTIONS = {
-       'resources': {
-           'num_machines': 1,
-           'num_cores_per_machine': 40
-       },
-       'queue_name': 'par40',
-   }
-   ```
-
-## Running the WorkChain
+### 3. Running the WorkChain
 
 Execute the submission script:
 
@@ -225,15 +149,7 @@ Execute the submission script:
 python run_aiida.py
 ```
 
-This script performs the following actions:
-
-- Starts and restarts the AiiDA daemon to ensure it's running.
-- Loads the bulk structure and prepares it as an AiiDA [`StructureData`](https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/data_types.html#structuredata) node.
-- Sets up all the necessary inputs for the AiiDA-TEROS.
-- Submits the work chain to the AiiDA daemon for execution.
-- Writes the process ID (PK) to `pks.txt` for future reference.
-
-## Monitoring and Retrieving Results
+### 4. Monitoring and Retrieving Results
 
 - **Monitor the WorkChain**
 
@@ -255,8 +171,7 @@ This script performs the following actions:
 
   The generated plots can be found in the appropriate subdirectory (`thermo_results/binary` or `thermo_results/ternary`). These include:
 
-  - **surface_free_energies.pdf**: Surface free energy vs. oxygen chemical potential.
-  - **surface_phase_diagram.pdf** (for ternary oxides): Surface phase diagram showing the most stable terminations.
+  - **surface_free_energies.pdf**
 
 ## Output Explanation
 
