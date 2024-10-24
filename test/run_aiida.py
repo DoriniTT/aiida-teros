@@ -65,8 +65,12 @@ PARSER_SETTINGS = config['parser_settings']
 COMPUTER_OPTIONS = config['computer_options']
 SLAB_PARAMETERS = config['slab_parameters']
 
-dict_terminations = config['terminations']
-TERMINATIONS = {struc: StructureData(ase=read(termination)) for struc, termination in dict_terminations.items()} #* Load terminations
+# Check if 'terminations' exist in the config.yaml
+if 'terminations' in config:
+    dict_terminations = config['terminations']
+    TERMINATIONS = {struc: StructureData(ase=read(termination)) for struc, termination in dict_terminations.items()} # Load terminations
+else:
+    TERMINATIONS = None
 
 # ================================================
 # Helper Functions
@@ -189,7 +193,6 @@ def main():
     inputs = {
         'code': load_vasp_code(CODE_LABEL),
         'bulk_structure': bulk_structure,
-        'terminations': TERMINATIONS,
         'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
         'incar_parameters_slab': INCAR_PARAMETERS_SLAB,
         'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
@@ -203,6 +206,10 @@ def main():
         'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
         'total_energy_o2': Float(TOTAL_ENERGY_O2),
     }
+
+    # Add terminations if they exist
+    if TERMINATIONS is not None:
+        inputs['terminations'] = TERMINATIONS
 
     # Submit the WorkChain
     try:

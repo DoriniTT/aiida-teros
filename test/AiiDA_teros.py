@@ -318,7 +318,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
         try:
 
-            if self.inputs.terminations: #* If specific terminations are requested
+            if 'terminations' in self.inputs:  # Check if 'terminations' is provided as input
                 self.ctx.slabs = list(self.inputs.terminations.values())
                 self.report('The user requested specific terminations.')
 
@@ -548,7 +548,14 @@ class AiiDATEROSWorkChain(WorkChain):
 
         # Save the LaTeX table to a file
         with open(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/termination_parameters_table.tex', 'w') as f:
+            f.write(r"\documentclass{article}\n")
+            f.write(r"\usepackage{amsmath}\n")
+            f.write(r"\usepackage{geometry}\n")
+            f.write(r"\geometry{a4paper, margin=1in}\n")
+            f.write(r"\begin{document}\n")
+            f.write(r"\section*{Termination Parameters Table}\n")
             f.write(table_latex)
+            f.write(r"\end{document}\n")
 
         self.report('Generated LaTeX table with termination parameters.')
 
@@ -586,7 +593,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
         # Customize the plot
         ax.set_xlabel('O Chemical Potential (eV)', fontsize=12)
-        ax.set_ylabel('Surface Energy (eV/Å²)', fontsize=12)
+        ax.set_ylabel('Surface Energy (J/m²)', fontsize=12)
         ax.set_title(title, fontsize=14, pad=15)
 
         # Add grid
@@ -695,7 +702,14 @@ class AiiDATEROSWorkChain(WorkChain):
 
             # Save the LaTeX table to a file
             with open(f'{self.inputs.path_to_graphs.value}/thermo_results/ternary/ternary_parameters_table.tex', 'w') as f:
+                f.write(r"\documentclass{article}\n")
+                f.write(r"\usepackage{amsmath}\n")
+                f.write(r"\usepackage{geometry}\n")
+                f.write(r"\geometry{a4paper, margin=1in}\n")
+                f.write(r"\begin{document}\n")
+                f.write(r"\section*{Termination Parameters Table}\n")
                 f.write(table_latex)
+                f.write(r"\end{document}\n")
 
             self.report('Generated LaTeX table with ternary termination parameters and saved to file.')
 

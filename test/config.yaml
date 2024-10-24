@@ -13,8 +13,8 @@ total_energies:
   total_energy_o2: -9.82  # Energy for O2 molecule
 
 # OPTIONAL: Give the path of specific terminations that you want to study.
-terminations:
-  slab1: "termination1.vasp"
+#terminations:
+#  slab1: "termination1.vasp"
 
 # INCAR Parameters for Bulk Relaxations
 incar_parameters_bulk:
