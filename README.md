@@ -58,7 +58,7 @@ Before using AiiDA-TEROS, ensure you have the following software and packages in
 - **pymatgen** (Python Materials Genomics)
 - **NumPy**, **Matplotlib**, **Seaborn**
 - **pint** (for unit handling)
-- **Additional Python packages**: `subprocess`, `shutil`, `os`, `time`, `yaml`
+- **Additional Python packages**: `subprocess`, `shutil`, `os`, `time`, `yaml`, `tabulate`
 
 ### Note on VASP
 
@@ -87,7 +87,7 @@ It is recommended to set up a Python virtual environment to keep your dependenci
 After setting up the virtual environment, install the necessary Python packages by running:
 
   ```bash
-  pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint yaml
+  pip install aiida-core aiida-vasp ase pymatgen numpy matplotlib seaborn pint yaml tabulate
   ```
 
 4. **Set Up AiiDA and AiiDA-VASP**
