@@ -167,12 +167,14 @@ python run_aiida.py
   - Relaxed bulk and slab structures.
   - Surface Gibbs free energies and phase diagrams.
   - Plots saved in the specified directory (`thermo_results/binary` or `thermo_results/ternary`).
+  - LaTeX table with the parameters used for calculating surface Gibbs free energy for binary and ternary oxides.
 
 - **Visualize results**
 
   The generated plots can be found in the appropriate subdirectory (`thermo_results/binary` or `thermo_results/ternary`). These include:
 
   - **surface_free_energies.pdf**
+  - **termination_parameters_table.tex** (for binary and ternary oxides)
 
 ## Output Explanation
 
@@ -216,6 +218,16 @@ For binary oxides, a plot is generated showing the **Surface Gibbs free energy (
 
 The generated plot is saved in the directory `thermo_results/binary`.
 
+Additionally, a LaTeX table is generated that contains the parameters used for calculating the surface Gibbs free energy. The table provides transparency regarding the specific parameters used in the main equation, including:
+
+- **Termination**: The termination label.
+- **$E_{slab}$ (eV)**: The energy of the slab.
+- **$N_{element}$**: The number of atoms of the first element in the slab.
+- **$N_O$**: The number of oxygen atoms in the slab.
+- **$A$ (Å²)**: The surface area of the slab.
+
+The LaTeX table is saved in the file `thermo_results/binary/termination_parameters_table.tex`. This table is useful if the user wants to create their own plots as well.
+
 #### For Ternary Oxides (e.g., Ag₂MoO₄)
 For ternary oxides, two plots are generated:
 
@@ -223,6 +235,14 @@ For ternary oxides, two plots are generated:
 - **Surface Phase Diagram**: This plot shows the variation of the chemical potential of the first element (e.g., Ag, Δμ_Ag) and the variation of the chemical potential of oxygen (Δμ_O). The most stable surface terminations are identified in this diagram, providing insights into how both elements contribute to surface stability under different conditions.
 
 The generated plots are saved in the directory `thermo_results/ternary`.
+
+Additionally, a LaTeX table is generated that contains the parameters used for calculating the surface Gibbs free energy for ternary oxides. The table provides transparency regarding the specific parameters used in the main equation, including:
+
+- **Termination**: The label of the termination.
+- **Number of Atoms**: The number of atoms of each element in the slab.
+- **Θ**: Represents the difference in energy between the slab total energy and the reference energies.
+
+The LaTeX table is saved in the file `thermo_results/ternary/termination_parameters_table.tex`. This table is useful if the user wants to create their own plots as well.
 
 ### Common Output Descriptions:
 For all the categories above, the outputs are stored in consistent AiiDA node types:
