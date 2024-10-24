@@ -22,9 +22,10 @@ from aiida.orm import (
     Dict,
     Float,
     Str,
-    List
+    List,
+    Bool,
 )
-from aiida_teros.test.AiiDA_teros import AiiDATEROSWorkChain
+from aiida_teros.AiiDA_teros import AiiDATEROSWorkChain
 
 # ================================================
 # Configuration Section
@@ -54,9 +55,10 @@ config = load_config(CONFIG_FILE)
 BULK_STRUCTURE_PATH = config['bulk_structure_path']
 POTENTIAL_FAMILY = config['potential_family']
 CODE_LABEL = config['code_label']
+CALCULATE_HF = config['thermodynamic_parameters']['calculate_hf_bulk']
 HF_BULK = config['thermodynamic_parameters']['hf_bulk']
-TOTAL_ENERGY_FIRST_ELEMENT = config['total_energies']['total_energy_first_element']
-TOTAL_ENERGY_O2 = config['total_energies']['total_energy_o2']
+TOTAL_ENERGY_FIRST_ELEMENT = config['thermodynamic_parameters']['total_energy_first_element']
+TOTAL_ENERGY_O2 = config['thermodynamic_parameters']['total_energy_o2']
 INCAR_PARAMETERS_BULK = config['incar_parameters_bulk']
 INCAR_PARAMETERS_SLAB = config['incar_parameters_slab']
 WORKFLOW_SETTINGS = config['workflow_settings']
@@ -71,6 +73,18 @@ if 'terminations' in config:
     TERMINATIONS = {struc: StructureData(ase=read(termination)) for struc, termination in dict_terminations.items()} # Load terminations
 else:
     TERMINATIONS = None
+if 'hf_bulk' in config['thermodynamic_parameters']:
+    HF_BULK = config['thermodynamic_parameters']['hf_bulk']
+else:
+    HF_BULK = None
+if 'total_energy_first_element' in config['thermodynamic_parameters']:
+    TOTAL_ENERGY_FIRST_ELEMENT = config['thermodynamic_parameters']['total_energy_first_element']
+else:
+    TOTAL_ENERGY_FIRST_ELEMENT = None
+if 'total_energy_o2' in config['thermodynamic_parameters']:
+    TOTAL_ENERGY_O2 = config['thermodynamic_parameters']['total_energy_o2']
+else: 
+    TOTAL_ENERGY_O2 = None
 
 # ================================================
 # Helper Functions
@@ -195,6 +209,7 @@ def main():
         'bulk_structure': bulk_structure,
         'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
         'incar_parameters_slab': INCAR_PARAMETERS_SLAB,
+        'calculate_HF': Bool(CALCULATE_HF),
         'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
         'potential_mapping': Dict(dict=POTENTIAL_MAPPING),
         'potential_family': Str(POTENTIAL_FAMILY),
@@ -202,14 +217,17 @@ def main():
         'computer_options': Dict(dict=COMPUTER_OPTIONS),
         'miller_indices': List(list=SLAB_PARAMETERS['miller_indices']),
         'min_slab_thickness': Float(SLAB_PARAMETERS['min_slab_thickness']),
-        'HF_bulk': Float(HF_BULK),
-        'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
-        'total_energy_o2': Float(TOTAL_ENERGY_O2),
     }
 
     # Add terminations if they exist
     if TERMINATIONS is not None:
         inputs['terminations'] = TERMINATIONS
+    if HF_BULK is not None:
+        inputs['HF_bulk'] = Float(HF_BULK)
+    if TOTAL_ENERGY_FIRST_ELEMENT is not None:
+        inputs['total_energy_first_element'] = Float(TOTAL_ENERGY_FIRST_ELEMENT)
+    if TOTAL_ENERGY_O2 is not None:
+        inputs['total_energy_o2'] = Float(TOTAL_ENERGY_O2)
 
     # Submit the WorkChain
     try:

@@ -9,9 +9,11 @@ from aiida.engine import if_, while_, return_
 from aiida.engine import calcfunction
 from aiida.common.extendeddicts import AttributeDict
 from ase.io import read
+from ase.build import molecule
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.surface import SlabGenerator
 from pymatgen.io.vasp.outputs import Outcar
+from pymatgen.ext.matproj import MPRester
 from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
@@ -25,14 +27,18 @@ plt.rcParams['font.sans-serif'] = ['Arial', 'DejaVu Sans']
 ureg = pint.UnitRegistry()
 ureg.setup_matplotlib(True)
 
-# Define workflows
-VaspWorkflow = WorkflowFactory('vasp.vasp')
+@calcfunction
+def calculate_enthalpy_of_formation_calcfunc(Hf: Float) -> Float:
+    return Hf
 
 class AiiDATEROSWorkChain(WorkChain):
     """
     Master WorkChain for generating slab structures from a bulk structure
     and performing relaxation calculations on them.
     """
+
+    # Define workflows
+    VaspWorkflow = WorkflowFactory('vasp.vasp')
 
     @classmethod
     def define(cls, spec):
@@ -189,17 +195,25 @@ class AiiDATEROSWorkChain(WorkChain):
         spec.input(
             'total_energy_first_element', 
             valid_type=Float, 
+            required=False,
             help='Calculated total energy of the first element.'
         )
         spec.input(
             'total_energy_o2', 
             valid_type=Float, 
+            required=False,
             help='Calculated total energy of the O2 molecule.'
         )
         spec.input(
             'HF_bulk', 
             valid_type=Float, 
+            required=False,
             help='Heat of formation of the bulk material.'
+        )
+        spec.input(
+            'calculate_HF', 
+            valid_type=Bool, 
+            help='Whether to calculate the enthalpy of formation.'
         )
         # Path for storing graphs
         spec.input(
@@ -213,25 +227,43 @@ class AiiDATEROSWorkChain(WorkChain):
         spec.outline(
             cls.run_relax_bulk,            # Step 1: Relax bulk structure
             cls.inspect_relax_bulk,        # Step 2: Inspect bulk relaxation results
-            cls.generate_slabs,            # Step 3: Generate slabs from relaxed bulk
-            cls.run_relax_all_slabs,       # Step 4: Relax all generated slabs
-            cls.inspect_relax_all_slabs,   # Step 5: Inspect relaxation results
+
+            #if_(cls.calculate_enthalpy_of_formation)(
+            cls.find_most_stable_bulk_structures,  # Step 3: Find most stable structures for each element
+            cls.relax_stable_structures,          # Step 4: Relax most stable structures
+            cls.calculate_enthalpy_of_formation,  # Step 5: Calculate enthalpy of formation
+            #),
+
+            cls.generate_slabs,            # Step 6: Generate slabs from relaxed bulk
+            cls.run_relax_all_slabs,       # Step 7: Relax all generated slabs
+            cls.inspect_relax_all_slabs,   # Step 8: Inspect relaxation results
 
             if_(cls.is_binary)(
-            cls.result_binary,         # Step 6: Create a dictionary with the results
-            cls.plot_gammas_binary,    # Step 7: Plot gamma vs delta_o with temperature
+            cls.result_binary,         # Step 9: Create a dictionary with the results (if binary)
+            cls.plot_gammas_binary,    # Step 10: Plot gamma vs delta_o with temperature (if binary)
             ).else_(
-            cls.result_ternary,        # Step 6: Create a dictionary with the results
-            cls.plot_gammas_ternary,  # Step 7: Plot gamma vs delta_o with temperature
-            cls.plot_phase_diagram,    # Step 8: Plot the combined figures
+            cls.result_ternary,        # Step 9: Create a dictionary with the results (if ternary)
+            cls.plot_gammas_ternary,   # Step 10: Plot gamma vs delta_o with temperature (if ternary)
+            cls.plot_phase_diagram,    # Step 11: Plot the combined figures (if ternary)
             )
         )
 
         # Define outputs
         spec.expose_outputs(
-            VaspWorkflow, 
+            cls.VaspWorkflow, 
             namespace='bulk'
         )
+
+        spec.output_namespace(
+            'bulk_elements', 
+            dynamic=True
+        )
+
+        spec.output('enthalpy_of_formation', 
+            valid_type=Float, 
+            help='The calculated enthalpy of formation for the bulk structure.'
+        )
+
         spec.output_namespace(
             'relaxations', 
             dynamic=True
@@ -240,6 +272,7 @@ class AiiDATEROSWorkChain(WorkChain):
             'stable_structures', 
             dynamic=True
         )
+        
 
         # Define exit codes for error handling
         spec.exit_code(
@@ -269,6 +302,17 @@ class AiiDATEROSWorkChain(WorkChain):
             return False
         else:
             raise ValueError("Bulk structure must contain two or three elements.")
+
+    def calculate_enthalpy_of_formation(self):
+
+        # if self.inputs.calculate_HF.value, report that we are calculating the enthalpy of formation
+        if self.inputs.calculate_HF.value:
+            self.report('Calculating the enthalpy of formation for the bulk structure.')
+            return True
+        else:
+            #Report that we are using the provided enthalpy of formation
+            self.report('Using the provided enthalpy of formation for the bulk structure.')
+            return False
 
     def run_relax_bulk(self):
         """
@@ -308,8 +352,146 @@ class AiiDATEROSWorkChain(WorkChain):
             return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
         # Expose bulk relaxation outputs
-        self.out_many(self.exposed_outputs(self.ctx.relax_bulk, VaspWorkflow, namespace='bulk'))
+        self.out_many(self.exposed_outputs(self.ctx.relax_bulk, self.__class__.VaspWorkflow, namespace='bulk'))
         self.report('Bulk relaxation completed successfully.')
+
+    def find_most_stable_bulk_structures(self):
+        """
+        Find the most stable structures for each element in the bulk structure from the Materials Project.
+        """
+        self.report('Finding the most stable structures for each element in the bulk.')
+        try:
+            # Extract the bulk structure
+            bulk_structure = self.inputs.bulk_structure.get_ase()
+            element_counts = Counter(atom.symbol for atom in bulk_structure)
+            unique_elements = list(element_counts.keys())
+
+            self.ctx.stable_structures_mp = {}
+            with MPRester("DE9BQot894Tah2QqkkCS9lFh7vpjkvWk") as m:
+                for element in unique_elements:
+                    if element == 'O':
+                        # Create O2 molecule manually
+                        O2 = molecule('O2')
+                        O2.positions = [[0, 0, 0], [1.2, 0, 0]]  # Distance between oxygen atoms = 1.2 Angstrom
+                        box_dimensions = [13, 14, 15]
+                        O2.set_cell(box_dimensions)
+                        O2.center()
+                        self.ctx.stable_structures_mp[element] = StructureData(ase=O2)
+                        self.report('Generated O2 molecule manually.')
+                        continue
+
+                    # Query the Materials Project database for the most stable structure of each element
+                    data = m.query(criteria={"elements": {"$in": [element]}, "e_above_hull": {"$gte": 0}}, properties=["material_id", "e_above_hull"])
+                    if not data:
+                        self.report(f'No data found for element: {element}')
+                        continue
+
+                    # Find the structure with the lowest energy above hull
+                    most_stable_entry = min(data, key=lambda x: x['e_above_hull'])
+                    structure = m.get_structure_by_material_id(most_stable_entry['material_id'])
+                    ase_structure = AseAtomsAdaptor.get_atoms(structure)
+                    self.ctx.stable_structures_mp[element] = StructureData(ase=ase_structure)
+
+            self.report(f'Found {len(self.ctx.stable_structures_mp)} stable structures from the Materials Project.')
+        except Exception as e:
+            self.report(f'Failed to retrieve stable structures from the Materials Project: {e}')
+            raise
+
+    def relax_stable_structures(self):
+        """
+        Run VASP relaxation calculations on the most stable structures found from the Materials Project.
+        """
+        self.report('Submitting relaxation calculations for the most stable structures.')
+
+        self.ctx.relax_stable_calculations = []
+
+        for element, structure in self.ctx.stable_structures_mp.items():
+            self.report(f'Running relaxation for stable structure of element: {element}.')
+
+            try:
+                # Get INCAR parameters for bulk relaxation (reusing existing settings)
+                incar_bulk = self.inputs.incar_parameters_bulk
+
+                # Get the VASP builder with bulk INCAR parameters
+                builder = self.get_vasp_builder(
+                    structure=structure,
+                    incar_parameters=incar_bulk,
+                    kpoint_density=self.inputs.kpoints_precision.value,
+                    label=f'relax_stable_{element}',
+                    description=f'Relaxation of stable structure of {element}'
+                )
+
+                # Modify INCAR and KPOINTS settings if relaxing O2
+                if element == 'O':
+                    builder.parameters['ISIF'] = 2
+                    kpoints = KpointsData()
+                    kpoints.set_kpoints_mesh([1, 1, 1], offset=[0, 0, 0])
+                    builder.kpoints = kpoints
+
+                # Submit the relaxation calculation
+                future = self.submit(builder)
+                self.report(f'Submitted relaxation for stable structure of {element} with PK {future.pk}')
+                self.to_context(relax_stable_calculations=append_(future))
+
+            except Exception as e:
+                self.report(f'Failed to submit relaxation for stable structure of {element}: {e}')
+                raise
+
+    def inspect_relax_stable_structures(self):
+        """
+        Inspect the results of the relaxation calculations for the most stable structures.
+        """
+        self.report('Inspecting relaxation calculations for the most stable structures.')
+
+        structure_dict = {}
+        for n, calc in enumerate(self.ctx.relax_stable_calculations, start=1):
+            if not calc.is_finished_ok:
+                self.report(f'Relaxation calculation for {calc.label} failed with exit status {calc.exit_status}')
+                raise RuntimeError(f'Relaxation calculation for {calc.label} failed.')
+
+            self.report(f'Relaxation calculation for {calc.label} completed successfully.')
+            structure_dict[f'relax_{calc.label}'] = calc.outputs.structure
+        
+        self.out('bulk_elements', structure_dict)
+
+    def calculate_enthalpy_of_formation(self):
+        """
+        Calculate the enthalpy of formation for the bulk material using relaxed energies of the elemental structures.
+        """
+        self.report('Calculating enthalpy of formation for the bulk structure.')
+
+        try:
+            # Retrieve the relaxed bulk energy
+            E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
+
+            # Retrieve the relaxed energies of elemental structures
+            elemental_energies = {}
+            for calc in self.ctx.relax_stable_calculations:
+                element = calc.label.replace('relax_stable_', '')
+                energy = calc.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
+                elemental_energies[element] = energy
+
+            # Extract bulk structure and calculate minimal stoichiometry
+            bulk_structure = self.inputs.bulk_structure.get_ase()
+            element_counts = Counter(atom.symbol for atom in bulk_structure)
+            gcd_value = np.gcd.reduce(list(element_counts.values()))
+
+            # Calculate enthalpy of formation
+            Hf = E_bulk
+            for element, count in element_counts.items():
+                n_element = count / gcd_value
+                Hf -= n_element * elemental_energies[element]
+
+            Hf /= gcd_value  # Normalize by the formula unit
+            self.report(f'Calculated enthalpy of formation: {Hf} eV per formula unit.')
+
+            # Store the result using calcfunction
+            enthalpy_of_formation_node = calculate_enthalpy_of_formation_calcfunc(Float(Hf))
+            self.out('enthalpy_of_formation', enthalpy_of_formation_node)
+
+        except Exception as e:
+            self.report(f'Failed to calculate enthalpy of formation: {e}')
+            raise
 
     def generate_slabs(self):
         """
@@ -453,7 +635,7 @@ class AiiDATEROSWorkChain(WorkChain):
         # Create the file thermo_results/binary if it does not exist
         os.makedirs(f'{self.inputs.path_to_graphs.value}/thermo_results/binary', exist_ok=True)
 
-        delta_Hf = self.inputs.HF_bulk.value
+        delta_Hf = self.ctx.enthalpy_of_formation.value if self.inputs.calculate_HF.value else self.inputs.HF_bulk.value
         E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
         bulk_structure = self.inputs.bulk_structure
 
@@ -617,9 +799,19 @@ class AiiDATEROSWorkChain(WorkChain):
         for n, calc in enumerate(self.ctx.relax_calcs, start=1):
 
             #energy_ag = -2.8289*ureg.eV
-            energy_ag = self.inputs.total_energy_first_element.value * ureg.eV
-            energy_o2 = self.inputs.total_energy_o2.value * ureg.eV
-            #energy_o2 = -9.82*ureg.eV
+            if self.inputs.calculate_HF.value:
+
+                for n, calc in enumerate(self.ctx.relax_stable_calculations):
+
+                    element = calc.label.replace('relax_stable_', '')
+                    if n == 0 and element != 'O':
+                        energy_ag = calc.outputs.misc.get_dict()['total_energies']['energy_extrapolated'] * ureg.eV
+                    if element == 'O':
+                        energy_o2 = calc.outputs.misc.get_dict()['total_energies']['energy_extrapolated'] * ureg.eV
+            else:
+                energy_ag = self.inputs.total_energy_first_element.value * ureg.eV
+                energy_o2 = self.inputs.total_energy_o2.value * ureg.eV
+
             logP_P0 = 1
             kB = 1.38064852e-23*ureg["J/K"] # Boltzmann's constant
             mu_ex = 0.4*ureg.eV
@@ -668,7 +860,7 @@ class AiiDATEROSWorkChain(WorkChain):
             Delta_Gs = [-0.15, -0.341, -0.548, -0.765, -0.991, -1.222, -1.460, -1.702, -1.949, -2.199, -2.453, -2.711]
             Delta_Gs = [g*ureg.eV for g in Delta_Gs]
             #delta_mu = [1/2 * (g + kB * T * logP_P0) + mu_ex for T, g in zip(range_of_T, Delta_Gs)]
-            lim_delta_o = self.inputs.HF_bulk.value / stoichiometry[2]
+            lim_delta_o = self.ctx.enthalpy_of_formation.value / stoichiometry[2] if self.inputs.calculate_HF.value else self.inputs.HF_bulk.value / stoichiometry[2]
             delta_mu = np.linspace(0, lim_delta_o, 20)
             delta_mu = [d*ureg.eV for d in delta_mu]
             gamma = []
@@ -715,8 +907,13 @@ class AiiDATEROSWorkChain(WorkChain):
 
             precision = self.inputs.precision_phase_diagram.value
             #* Calculating the range of Delta_Ag and Delta_O
-            self.ctx.lim_delta_ag = lim_delta_ag = self.inputs.HF_bulk.value / stoichiometry[0]
-            self.ctx.lim_delta_o = lim_delta_o = self.inputs.HF_bulk.value / stoichiometry[2]
+            if self.inputs.calculate_HF.value:
+                self.ctx.lim_delta_ag = lim_delta_ag = self.ctx.enthalpy_of_formation.value / stoichiometry[0]
+                self.ctx.lim_delta_o = lim_delta_o = self.ctx.enthalpy_of_formation.value / stoichiometry[2]
+            else:
+                self.ctx.lim_delta_ag = lim_delta_ag = self.inputs.HF_bulk.value / stoichiometry[0]
+                self.ctx.lim_delta_o = lim_delta_o = self.inputs.HF_bulk.value / stoichiometry[2]
+
             delta_ag = np.linspace(0, lim_delta_ag, precision)
             delta_o = np.linspace(0, lim_delta_o, precision)
             gamma_delta_ag_delta_o = np.zeros((precision, precision))
@@ -975,7 +1172,7 @@ class AiiDATEROSWorkChain(WorkChain):
         """
         Helper method to configure the VASP builder.
         """
-        builder = VaspWorkflow.get_builder()
+        builder = self.__class__.VaspWorkflow.get_builder()
 
         builder.structure = structure
 
