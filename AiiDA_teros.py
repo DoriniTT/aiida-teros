@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-#TEST
-#TEST2
 import os, pint, math, shutil, numpy as np, subprocess as sb
 from aiida.engine import WorkChain, ToContext, append_
 from aiida.orm import (
