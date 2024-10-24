@@ -12,9 +12,7 @@ Usage:
     python run_aiida.py
 """
 
-import os
-import sys
-import time
+import os, sys, time, yaml
 from ase.io import read
 from aiida.engine import submit
 from aiida import load_profile
@@ -26,109 +24,53 @@ from aiida.orm import (
     Str,
     List
 )
+from aiida_teros.test.AiiDA_teros import AiiDATEROSWorkChain
 
 # ================================================
 # Configuration Section
 # ================================================
 
-# Paths and File Names
-BULK_STRUCTURE_PATH = 'ag2o.vasp'
-POTENTIAL_FAMILY = 'PBE'  # Example: 'PBE', 'GGA', etc.
-CODE_LABEL = 'VASPVTST-6.4.1@bohr-vtst'
-#CODE_LABEL = 'VASP-6.4.1@cluster02'
+# Load configuration from config.yaml
+CONFIG_FILE = 'config.yaml'
 
-# Thermodynamic Parameters
-HF_BULK = -0.314 * 6 # Heat of formation for bulk. Must be in eV per formula unit.
+def load_config(config_file):
+    """
+    Load configuration from a YAML file.
 
-# Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
-TOTAL_ENERGY_FIRST_ELEMENT = -2.8289  # Total energy for the first element (e.g., if the structure is Ag3PO4, this is the energy of Ag)
-TOTAL_ENERGY_O2 = -9.82  # Total energy for O2 molecule
+    :param config_file: Path to the YAML configuration file.
+    :return: Configuration dictionary.
+    """
+    if not os.path.exists(config_file):
+        raise FileNotFoundError(f'Configuration file not found: {config_file}')
+    with open(config_file, 'r') as f:
+        config = yaml.safe_load(f)
+    print(f'Configuration loaded from {config_file}.')
+    return config
 
-# INCAR Parameters for Bulk Relaxations
-INCAR_PARAMETERS_BULK = {'incar': {
-    'ISMEAR': 0,
-    'SIGMA': 0.01,
-    'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,
-    'ISIF': 3,
-    'IBRION': 2,
-    'NSW': 100,
-    'EDIFFG': -0.01,
-    'LREAL': 'Auto',
-    'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
-    'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
-    }
-}
+# Load configuration
+config = load_config(CONFIG_FILE)
 
-# INCAR Parameters for Slab Relaxations
-INCAR_PARAMETERS_SLAB = {'incar': {
-    'ISMEAR': 0,
-    'SIGMA': 0.01,
-    'ENCUT': 550,
-    'NCORE': 2,
-    'ISPIN': 1,
-    'ISIF': 2,
-    'IBRION': 2,
-    'NSW': 1000,
-    'EDIFFG': -0.05,
-    'LREAL': 'Auto',
-    'PREC': 'Accurate',
-    'NELM': 60,
-    'NELMIN': 6,
-    'EDIFF': 1e-5,
-    'LWAVE': True,
-    'LORBIT': 11,
-    'IVDW': 12,
-    }
-}
+# Extract configuration parameters
+BULK_STRUCTURE_PATH = config['bulk_structure_path']
+POTENTIAL_FAMILY = config['potential_family']
+CODE_LABEL = config['code_label']
+HF_BULK = config['thermodynamic_parameters']['hf_bulk']
+TOTAL_ENERGY_FIRST_ELEMENT = config['total_energies']['total_energy_first_element']
+TOTAL_ENERGY_O2 = config['total_energies']['total_energy_o2']
+INCAR_PARAMETERS_BULK = config['incar_parameters_bulk']
+INCAR_PARAMETERS_SLAB = config['incar_parameters_slab']
+WORKFLOW_SETTINGS = config['workflow_settings']
+POTENTIAL_MAPPING = config['potential_mapping']
+PARSER_SETTINGS = config['parser_settings']
+COMPUTER_OPTIONS = config['computer_options']
+SLAB_PARAMETERS = config['slab_parameters']
 
-# Workflow Settings
-WORKFLOW_SETTINGS = {
-    'kpoints_precision': 0.3,    # K-points mesh density
-}
-
-# Potential Mapping
-POTENTIAL_MAPPING = {
-    'Ag': 'Ag',
-    'O': 'O',
-    'P': 'P',
-}
-
-# Parser Settings
-PARSER_SETTINGS = {'parser_settings': {
-    'add_energies': True,
-    'add_trajectory': True,
-    'add_forces': True,
-    'add_structure': True,
-    'add_kpoints': True,
-    }
-}
-
-# Computer Options
-COMPUTER_OPTIONS = {
-    'resources': {
-        'num_machines': 1,
-        'num_cores_per_machine': 40
-    },
-    'queue_name': 'par40',
-}
-#COMPUTER_OPTIONS = {
-#    'resources': {
-#        'tot_num_mpiprocs': 24
-#    },
-#}
-
-# Slab Generation Parameters
-SLAB_PARAMETERS = {
-    'miller_indices': [1, 1, 0],  # Example: [1, 1, 0]
-    'min_slab_thickness': 10.0,   # Minimum slab thickness in Å
-}
+# Check if 'terminations' exist in the config.yaml
+if 'terminations' in config:
+    dict_terminations = config['terminations']
+    TERMINATIONS = {struc: StructureData(ase=read(termination)) for struc, termination in dict_terminations.items()} # Load terminations
+else:
+    TERMINATIONS = None
 
 # ================================================
 # Helper Functions
@@ -224,8 +166,6 @@ def load_vasp_code(code_label):
 # Main Execution
 # ================================================
 
-from aiida_teros.new_functions.binary_oxide.calculation.AiiDA_teros import AiiDATEROSWorkChain
-
 def main():
     # Load the AiiDA profile
     try:
@@ -266,6 +206,10 @@ def main():
         'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
         'total_energy_o2': Float(TOTAL_ENERGY_O2),
     }
+
+    # Add terminations if they exist
+    if TERMINATIONS is not None:
+        inputs['terminations'] = TERMINATIONS
 
     # Submit the WorkChain
     try:

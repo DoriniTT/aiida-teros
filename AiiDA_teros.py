@@ -16,6 +16,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import seaborn as sns
+from tabulate import tabulate
 from aiida import load_profile
 load_profile()
 plt.rc('text', usetex=False)
@@ -91,6 +92,13 @@ class AiiDATEROSWorkChain(WorkChain):
             'bulk_structure', 
             valid_type=StructureData, 
             help='Bulk material structure.'
+        )
+
+        spec.input_namespace(
+            'terminations', 
+            valid_type=StructureData, 
+            required=False,
+            help='Specific terminations to calculate.',
         )
         
         # INCAR parameters
@@ -307,44 +315,50 @@ class AiiDATEROSWorkChain(WorkChain):
         """
         Generate slab structures from the relaxed bulk structure using pymatgen's SlabGenerator.
         """
-        self.report('Generating slab structures from relaxed bulk structure.')
 
         try:
-            # Retrieve the relaxed bulk structure
-            relax_bulk_calc = self.ctx.relax_bulk
-            if not relax_bulk_calc.is_finished_ok:
-                self.report('Bulk relaxation did not finish successfully.')
-                return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
-            relaxed_bulk = relax_bulk_calc.outputs.structure
+            if 'terminations' in self.inputs:  # Check if 'terminations' is provided as input
+                self.ctx.slabs = list(self.inputs.terminations.values())
+                self.report('The user requested specific terminations.')
 
-            # Convert AiiDA StructureData to pymatgen Structure
-            bulk_structure = relaxed_bulk.get_pymatgen()
-            miller = tuple(self.inputs.miller_indices.get_list())  # e.g., [1, 1, 1]
-            min_slab_thickness = self.inputs.min_slab_thickness.value  # in Angstroms
-            vacuum = self.inputs.vacuum.value  # in Angstroms
+            else:
+                self.report('Generating slab structures from relaxed bulk structure.')
+                # Retrieve the relaxed bulk structure
+                relax_bulk_calc = self.ctx.relax_bulk
+                if not relax_bulk_calc.is_finished_ok:
+                    self.report('Bulk relaxation did not finish successfully.')
+                    return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
-            slab_generator = SlabGenerator(
-                bulk_structure,
-                miller,
-                min_slab_thickness,
-                vacuum,
-                lll_reduce=True,
-                center_slab=True
-            )
-            slabs = slab_generator.get_slabs(symmetrize=True)
-            all_structures = []
-            for slab in slabs:
-                slab = slab.get_orthogonal_c_slab()
-                ase_atoms = AseAtomsAdaptor().get_atoms(slab)
-                all_structures.append(StructureData(ase=ase_atoms))
+                relaxed_bulk = relax_bulk_calc.outputs.structure
 
-            if not all_structures:
-                self.report('No slabs were generated.')
-                return self.exit_codes.ERROR_GENERATE_SLABS_FAILED
+                # Convert AiiDA StructureData to pymatgen Structure
+                bulk_structure = relaxed_bulk.get_pymatgen()
+                miller = tuple(self.inputs.miller_indices.get_list())  # e.g., [1, 1, 1]
+                min_slab_thickness = self.inputs.min_slab_thickness.value  # in Angstroms
+                vacuum = self.inputs.vacuum.value  # in Angstroms
 
-            self.ctx.slabs = all_structures
-            self.report(f'Generated {len(all_structures)} slab structures.')
+                slab_generator = SlabGenerator(
+                    bulk_structure,
+                    miller,
+                    min_slab_thickness,
+                    vacuum,
+                    lll_reduce=True,
+                    center_slab=True
+                )
+                slabs = slab_generator.get_slabs(symmetrize=True)
+                all_structures = []
+                for slab in slabs:
+                    slab = slab.get_orthogonal_c_slab()
+                    ase_atoms = AseAtomsAdaptor().get_atoms(slab)
+                    all_structures.append(StructureData(ase=ase_atoms))
+
+                if not all_structures:
+                    self.report('No slabs were generated.')
+                    return self.exit_codes.ERROR_GENERATE_SLABS_FAILED
+
+                self.ctx.slabs = all_structures
+                self.report(f'Generated {len(all_structures)} slab structures.')
 
             # Assign slabs to dynamic output namespace
             structure_dict = {}
@@ -436,6 +450,9 @@ class AiiDATEROSWorkChain(WorkChain):
 
         self.report('Starting calculation of surface total energy for a binary system.')
 
+        # Create the file thermo_results/binary if it does not exist
+        os.makedirs(f'{self.inputs.path_to_graphs.value}/thermo_results/binary', exist_ok=True)
+
         delta_Hf = self.inputs.HF_bulk.value
         E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
         bulk_structure = self.inputs.bulk_structure
@@ -460,6 +477,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
         mu_O_values = self.ctx.mu_O_values = [lower_limit, upper_limit]
         gammas = {}
+        termination_data = []  # Data collection for LaTeX table
         for i, calc in enumerate(self.ctx.relax_calcs):
             self.report(f'Processing relaxation calculation {i+1}.')
 
@@ -502,10 +520,44 @@ class AiiDATEROSWorkChain(WorkChain):
             'gamma_upper': gamma_values[1]
             }
 
+            # Collect data for the LaTeX table
+            termination_data.append([
+                f'Termination {i+1}',
+                E_slab,
+                N_element_slab,
+                N_O_slab,
+                A
+            ])
+
         self.report(f'Calculated surface Gibbs free energy for termination {i+1}.')
 
         self.ctx.gammas_binary = gammas
         self.report('Completed calculation of surface total energy for all terminations.')
+
+        # Define headers for the LaTeX table
+        headers = [
+            "Termination",
+            "$E_{slab}$ (eV)",
+            "$N_{element}$",
+            "$N_O$",
+            "$A$ (\AA$^2$)"
+        ]
+
+        # Generate the LaTeX table using tabulate
+        table_latex = tabulate(termination_data, headers=headers, tablefmt="latex")
+
+        # Save the LaTeX table to a file
+        with open(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/termination_parameters_table.tex', 'w') as f:
+            f.write(r"\documentclass{article}\n")
+            f.write(r"\usepackage{amsmath}\n")
+            f.write(r"\usepackage{geometry}\n")
+            f.write(r"\geometry{a4paper, margin=1in}\n")
+            f.write(r"\begin{document}\n")
+            f.write(r"\section*{Termination Parameters Table}\n")
+            f.write(table_latex)
+            f.write(r"\end{document}\n")
+
+        self.report('Generated LaTeX table with termination parameters.')
 
     def plot_gammas_binary(self):
         """
@@ -541,7 +593,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
         # Customize the plot
         ax.set_xlabel('O Chemical Potential (eV)', fontsize=12)
-        ax.set_ylabel('Surface Energy (eV/Å²)', fontsize=12)
+        ax.set_ylabel('Surface Energy (J/m²)', fontsize=12)
         ax.set_title(title, fontsize=14, pad=15)
 
         # Add grid
@@ -558,7 +610,10 @@ class AiiDATEROSWorkChain(WorkChain):
 
     def result_ternary(self):
 
+        os.makedirs(f'{self.inputs.path_to_graphs.value}/thermo_results/ternary', exist_ok=True)
+
         self.ctx.dict_results = {}
+        termination_data = []  # Data collection for LaTeX table
         for n, calc in enumerate(self.ctx.relax_calcs, start=1):
 
             #energy_ag = -2.8289*ureg.eV
@@ -625,6 +680,38 @@ class AiiDATEROSWorkChain(WorkChain):
                 g = (1 / ( 2 * self.ctx.dict_results[label]['a'] * self.ctx.dict_results[label]['b']) ) * (self.ctx.dict_results[label]['psi'] - self.ctx.dict_results[label]['Delta_Me_Ag'] * delta_mu_ag - self.ctx.dict_results[label]['Delta_Me_O'] * m)
                 gamma.append(g.to('J/m^2').magnitude)
             self.ctx.dict_results[label]['gamma_delta_o'] = gamma
+
+            # Collect data for the LaTeX table
+            termination_data.append([
+                label,
+                self.ctx.dict_results[label]['Delta_Me_O'],
+                self.ctx.dict_results[label]['Delta_Me_Ag'],
+                self.ctx.dict_results[label]['psi']
+            ])
+
+            # Define headers for the LaTeX table
+            headers = [
+                "Termination Label",
+                "$N_O - xN_B$",
+                "$N_A - yN_B$",
+                "$\Theta$ (eV)"
+            ]
+
+            # Generate the LaTeX table using tabulate
+            table_latex = tabulate(termination_data, headers=headers, tablefmt="latex")
+
+            # Save the LaTeX table to a file
+            with open(f'{self.inputs.path_to_graphs.value}/thermo_results/ternary/ternary_parameters_table.tex', 'w') as f:
+                f.write(r"\documentclass{article}\n")
+                f.write(r"\usepackage{amsmath}\n")
+                f.write(r"\usepackage{geometry}\n")
+                f.write(r"\geometry{a4paper, margin=1in}\n")
+                f.write(r"\begin{document}\n")
+                f.write(r"\section*{Termination Parameters Table}\n")
+                f.write(table_latex)
+                f.write(r"\end{document}\n")
+
+            self.report('Generated LaTeX table with ternary termination parameters and saved to file.')
 
             precision = self.inputs.precision_phase_diagram.value
             #* Calculating the range of Delta_Ag and Delta_O
