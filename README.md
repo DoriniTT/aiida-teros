@@ -1,5 +1,8 @@
 # AiiDA-TEROS: Automating Surface Thermodynamics
 
+Author: Dr. Thiago Trevizam Dorini (thiagotd@unicamp.br)
+Contact this email for support, bug reports, or information.
+
 ## Introduction
 
 Welcome to the **AiiDA-TEROS** repository!
