@@ -16,6 +16,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import seaborn as sns
+from tabulate import tabulate
 from aiida import load_profile
 load_profile()
 plt.rc('text', usetex=False)
@@ -449,6 +450,9 @@ class AiiDATEROSWorkChain(WorkChain):
 
         self.report('Starting calculation of surface total energy for a binary system.')
 
+        # Create the file thermo_results/binary if it does not exist
+        os.makedirs(f'{self.inputs.path_to_graphs.value}/thermo_results/binary', exist_ok=True)
+
         delta_Hf = self.inputs.HF_bulk.value
         E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
         bulk_structure = self.inputs.bulk_structure
@@ -473,6 +477,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
         mu_O_values = self.ctx.mu_O_values = [lower_limit, upper_limit]
         gammas = {}
+        termination_data = []  # Data collection for LaTeX table
         for i, calc in enumerate(self.ctx.relax_calcs):
             self.report(f'Processing relaxation calculation {i+1}.')
 
@@ -515,10 +520,37 @@ class AiiDATEROSWorkChain(WorkChain):
             'gamma_upper': gamma_values[1]
             }
 
+            # Collect data for the LaTeX table
+            termination_data.append([
+                f'Termination {i+1}',
+                E_slab,
+                N_element_slab,
+                N_O_slab,
+                A
+            ])
+
         self.report(f'Calculated surface Gibbs free energy for termination {i+1}.')
 
         self.ctx.gammas_binary = gammas
         self.report('Completed calculation of surface total energy for all terminations.')
+
+        # Define headers for the LaTeX table
+        headers = [
+            "Termination",
+            "$E_{slab}$ (eV)",
+            "$N_{element}$",
+            "$N_O$",
+            "$A$ (\AA$^2$)"
+        ]
+
+        # Generate the LaTeX table using tabulate
+        table_latex = tabulate(termination_data, headers=headers, tablefmt="latex")
+
+        # Save the LaTeX table to a file
+        with open(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/termination_parameters_table.tex', 'w') as f:
+            f.write(table_latex)
+
+        self.report('Generated LaTeX table with termination parameters.')
 
     def plot_gammas_binary(self):
         """
@@ -571,7 +603,10 @@ class AiiDATEROSWorkChain(WorkChain):
 
     def result_ternary(self):
 
+        os.makedirs(f'{self.inputs.path_to_graphs.value}/thermo_results/ternary', exist_ok=True)
+
         self.ctx.dict_results = {}
+        termination_data = []  # Data collection for LaTeX table
         for n, calc in enumerate(self.ctx.relax_calcs, start=1):
 
             #energy_ag = -2.8289*ureg.eV
@@ -638,6 +673,31 @@ class AiiDATEROSWorkChain(WorkChain):
                 g = (1 / ( 2 * self.ctx.dict_results[label]['a'] * self.ctx.dict_results[label]['b']) ) * (self.ctx.dict_results[label]['psi'] - self.ctx.dict_results[label]['Delta_Me_Ag'] * delta_mu_ag - self.ctx.dict_results[label]['Delta_Me_O'] * m)
                 gamma.append(g.to('J/m^2').magnitude)
             self.ctx.dict_results[label]['gamma_delta_o'] = gamma
+
+            # Collect data for the LaTeX table
+            termination_data.append([
+                label,
+                self.ctx.dict_results[label]['Delta_Me_O'],
+                self.ctx.dict_results[label]['Delta_Me_Ag'],
+                self.ctx.dict_results[label]['psi']
+            ])
+
+            # Define headers for the LaTeX table
+            headers = [
+                "Termination Label",
+                "$N_O - xN_B$",
+                "$N_A - yN_B$",
+                "$\Theta$ (eV)"
+            ]
+
+            # Generate the LaTeX table using tabulate
+            table_latex = tabulate(termination_data, headers=headers, tablefmt="latex")
+
+            # Save the LaTeX table to a file
+            with open(f'{self.inputs.path_to_graphs.value}/thermo_results/ternary/ternary_parameters_table.tex', 'w') as f:
+                f.write(table_latex)
+
+            self.report('Generated LaTeX table with ternary termination parameters and saved to file.')
 
             precision = self.inputs.precision_phase_diagram.value
             #* Calculating the range of Delta_Ag and Delta_O

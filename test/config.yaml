@@ -7,7 +7,6 @@ code_label: "VASPVTST-6.4.1@bohr-vtst"
 # Thermodynamic Parameters
 thermodynamic_parameters:
   hf_bulk: -1.884  # Heat of formation for bulk. Must be in eV per formula unit.
-
 # Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
 total_energies:
   total_energy_first_element: -2.8289  # Energy of the first element (e.g., Ag)
@@ -71,11 +70,12 @@ potential_mapping:
 
 # Parser Settings
 parser_settings:
-  add_energies: true
-  add_trajectory: true
-  add_forces: true
-  add_structure: true
-  add_kpoints: true
+  parser_settings:
+    add_energies: true
+    add_trajectory: true
+    add_forces: true
+    add_structure: true
+    add_kpoints: true
 
 # Computer Options
 computer_options:
