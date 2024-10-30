@@ -153,6 +153,7 @@ Execute the submission script:
 ```bash
 verdi daemon restart
 python run_aiida.py
+```
 
 ### 4. Monitoring and Retrieving Results
 
