@@ -608,6 +608,7 @@ class AiiDATEROSWorkChain(WorkChain):
         plt.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/surface_energy_plot.pdf', bbox_inches='tight', dpi=300)
 
     def result_ternary(self):
+        try:
             # Create directory for results
             ternary_path = os.path.join(self.inputs.path_to_graphs.value, 'thermo_results', 'ternary')
             os.makedirs(ternary_path, exist_ok=True)
@@ -627,179 +628,251 @@ class AiiDATEROSWorkChain(WorkChain):
             delta_mu_ag = 0 * self.ureg.eV
             self.report(f"Defined constants: energy_ag={energy_ag}, energy_o2={energy_o2}, kB={kB}, mu_ex={mu_ex}, delta_mu_ag={delta_mu_ag}")
 
+            # Process Bulk Calculation
+            self.process_bulk_calculation()
+
+            # Process each slab calculation
             for calc in self.ctx.relax_calcs:
                 label = calc.label
                 self.ctx.exemple_label = label
                 self.ctx.dict_results[label] = {}
                 self.report(f"Processing calculation with label: {label}")
 
-                # Process Slab Calculation
-                self.write_folder_data(calc.outputs.retrieved, 'vasprun.xml')
-                self.report("Wrote slab calculation data to vasprun.xml")
-                outcar_ase = read('vasprun.xml', format='vasp-xml')
-                self.report("Read slab calculation data from vasprun.xml")
-                os.remove('vasprun.xml')
-                self.report("Removed temporary vasprun.xml file")
-
-                # Process Bulk Calculation
-                self.write_folder_data(self.ctx.relax_bulk.outputs.retrieved, 'vasprun.xml')
-                self.report("Wrote bulk calculation data to vasprun.xml")
-                outcar_ase_bulk = read('vasprun.xml', format='vasp-xml')
-                self.report("Read bulk calculation data from vasprun.xml")
-
-                # Check minimal composition
-                structure_data = StructureData(ase=outcar_ase_bulk)
-                divide_minimal_comp = self.check_minimal_composition(structure_data)
-                self.report(f"Checked minimal composition: divide_minimal_comp={divide_minimal_comp}")
-
-                # Retrieve and process chemical symbols
-                chemical_symbols_bulk = outcar_ase_bulk.get_chemical_symbols()
-                unique_symbols = list(dict.fromkeys(chemical_symbols_bulk))
-                self.ctx.unique_symbols = unique_symbols
-                self.report(f"Unique chemical symbols: {unique_symbols}")
-
-                # Calculate element counts and stoichiometry
-                element_counts_bulk = {
-                    symbol: chemical_symbols_bulk.count(symbol) / divide_minimal_comp
-                    for symbol in unique_symbols
-                }
-                nAg_bulk = element_counts_bulk[unique_symbols[0]]
-                nMe_bulk = element_counts_bulk[unique_symbols[1]]
-                nO_bulk = element_counts_bulk[unique_symbols[2]]
-                composition_bulk = [nAg_bulk, nMe_bulk, nO_bulk]
-                self.report(f"Element counts bulk: {element_counts_bulk}")
-                self.report(f"Composition bulk: {composition_bulk}")
-
-                # Calculate bulk energy
-                energy_bulk = outcar_ase_bulk.get_potential_energy() * self.ureg.eV / divide_minimal_comp
-                self.report(f"Calculated bulk energy: {energy_bulk}")
-                os.remove('vasprun.xml')
-                self.report("Removed temporary vasprun.xml file after bulk calculation")
-
-                # Extract Slab Information
-                energy_slab = outcar_ase.get_potential_energy() * self.ureg.eV
-                cell_params = outcar_ase.cell.cellpar() * self.ureg.angstrom
-                chemical_symbols_slab = outcar_ase.get_chemical_symbols()
-                self.report(f"Extracted slab information: energy_slab={energy_slab}, cell_params={cell_params}, chemical_symbols_slab={chemical_symbols_slab}")
-
-                # Store slab information
-                self.ctx.dict_results[label].update({
-                    'energy_slab': energy_slab,
-                    'a': cell_params[0],
-                    'b': cell_params[1],
-                    'elements': {symbol: chemical_symbols_slab.count(symbol) for symbol in unique_symbols}
-                })
-                self.report(f"Stored slab information for {label}: energy_slab={energy_slab}, a={cell_params[0]}, b={cell_params[1]}, elements={self.ctx.dict_results[label]['elements']}")
-
-                elements_count = self.ctx.dict_results[label]['elements']
-                delta_me_ag = elements_count[unique_symbols[0]] - composition_bulk[0] * elements_count[unique_symbols[1]]
-                delta_me_o = elements_count[unique_symbols[2]] - composition_bulk[2] * elements_count[unique_symbols[1]]
-                self.report(f"Calculated Delta_Me: delta_me_ag={delta_me_ag}, delta_me_o={delta_me_o}")
-
-                self.ctx.dict_results[label].update({
-                    'Delta_Me_Ag': delta_me_ag,
-                    'Delta_Me_O': delta_me_o
-                })
-                self.report(f"Updated results with Delta_Me_Ag and Delta_Me_O for {label}")
-
-                # Calculate psi
-                psi = (
-                    energy_slab
-                    - elements_count[unique_symbols[1]] * energy_bulk / nMe_bulk
-                    - energy_ag * delta_me_ag
-                    - 0.5 * delta_me_o * energy_o2
-                )
-                self.ctx.dict_results[label]['psi'] = psi
-                self.report(f"Calculated psi for {label}: psi={psi}")
-
-                # Define temperature range and Delta_Gs
-                range_of_T = [t * self.ureg.K for t in range(100, 1300, 100)]  # Temperature (K)
-                Delta_Gs = [-0.15, -0.341, -0.548, -0.765, -0.991, -1.222, -1.460, -1.702, -1.949, -2.199, -2.453, -2.711]
-                Delta_Gs = [g * self.ureg.eV for g in Delta_Gs]
-                self.report(f"Defined temperature range and Delta_Gs: range_of_T={range_of_T}, Delta_Gs={Delta_Gs}")
-
-                # Calculate delta_mu
-                lim_delta_o = self.inputs.HF_bulk.value / composition_bulk[2]
-                delta_mu = np.linspace(0, lim_delta_o, 20) * self.ureg.eV
-                self.ctx.dict_results[label]['delta_mu'] = delta_mu.copy()
-                self.report(f"Calculated delta_mu for {label}: delta_mu={delta_mu}")
-
-                # Calculate gamma for each delta_mu
-                gamma = []
-                for m in delta_mu:
-                    gamma_value = (
-                        1 / (2 * self.ctx.dict_results[label]['a'] * self.ctx.dict_results[label]['b'])
-                    ) * (
-                        self.ctx.dict_results[label]['psi']
-                        - self.ctx.dict_results[label]['Delta_Me_Ag'] * delta_mu_ag
-                        - self.ctx.dict_results[label]['Delta_Me_O'] * m
-                    )
-                    gamma.append(gamma_value.to('J/m^2').magnitude)
-                self.ctx.dict_results[label]['gamma_delta_o'] = gamma
-                self.report(f"Calculated gamma_delta_o for {label}: gamma_delta_o={gamma}")
+                self.process_slab_calculation(calc, label)
+                self.calculate_gamma_and_store_results(label)
 
                 # Collect data for the LaTeX table
-                termination_data.append([
-                    label,
-                    self.ctx.dict_results[label]['Delta_Me_O'],
-                    self.ctx.dict_results[label]['Delta_Me_Ag'],
-                    self.ctx.dict_results[label]['psi']
-                ])
+                self.append_termination_data(termination_data, label)
                 self.report(f"Appended termination data for {label}")
 
             # Generate and save LaTeX table
-            headers = [
-                "Termination Label",
-                "$N_O - xN_B$",
-                "$N_A - yN_B$",
-                "$\Theta$ (eV)"
-            ]
-            table_latex = tabulate(termination_data, headers=headers, tablefmt="latex")
-            table_path = os.path.join(ternary_path, 'ternary_parameters_table.tex')
-            with open(table_path, 'w') as f:
-                f.write(r"\documentclass{article}\n")
-                f.write(r"\usepackage{amsmath}\n")
-                f.write(r"\usepackage{geometry}\n")
-                f.write(r"\geometry{a4paper, margin=1in}\n")
-                f.write(r"\begin{document}\n")
-                f.write(r"\section*{Termination Parameters Table}\n")
-                f.write(table_latex)
-                f.write(r"\end{document}\n")
-            self.report(f"Generated LaTeX table and saved to {table_path}")
+            self.generate_latex_table(termination_data, ternary_path)
 
             # Calculate gamma over range of Delta_Ag and Delta_O
+            self.calculate_phase_diagram()
+        except Exception as e:
+            self.report(f"Error in result_ternary: {e}")
+    
+    def process_bulk_calculation(self):
+        try:
+            # Process Bulk Calculation
+            self.write_folder_data(self.ctx.relax_bulk.outputs.retrieved, 'vasprun.xml')
+            self.report("Wrote bulk calculation data to vasprun.xml")
+            outcar_ase_bulk = read('vasprun.xml', format='vasp-xml')
+            self.report("Read bulk calculation data from vasprun.xml")
+
+            # Check minimal composition
+            structure_data = StructureData(ase=outcar_ase_bulk)
+            divide_minimal_comp = self.check_minimal_composition(structure_data)
+            self.report(f"Checked minimal composition: divide_minimal_comp={divide_minimal_comp}")
+
+            # Retrieve and process chemical symbols
+            chemical_symbols_bulk = outcar_ase_bulk.get_chemical_symbols()
+            unique_symbols = list(dict.fromkeys(chemical_symbols_bulk))
+            self.ctx.unique_symbols = unique_symbols
+            self.report(f"Unique chemical symbols: {unique_symbols}")
+
+            # Calculate element counts and stoichiometry
+            element_counts_bulk = {
+                symbol: chemical_symbols_bulk.count(symbol) / divide_minimal_comp
+                for symbol in unique_symbols
+            }
+            nAg_bulk = element_counts_bulk[unique_symbols[0]]
+            nMe_bulk = element_counts_bulk[unique_symbols[1]]
+            nO_bulk = element_counts_bulk[unique_symbols[2]]
+            self.ctx.composition_bulk = [nAg_bulk, nMe_bulk, nO_bulk]
+            self.ctx.energy_bulk = outcar_ase_bulk.get_potential_energy() * self.ureg.eV / divide_minimal_comp
+            self.report(f"Element counts bulk: {element_counts_bulk}")
+            self.report(f"Composition bulk: {self.ctx.composition_bulk}")
+            self.report(f"Calculated bulk energy: {self.ctx.energy_bulk}")
+            os.remove('vasprun.xml')
+            self.report("Removed temporary vasprun.xml file after bulk calculation")
+        except Exception as e:
+            self.report(f"Error in process_bulk_calculation: {e}")
+
+    def process_slab_calculation(self, calc, label):
+        try:
+            # Process Slab Calculation
+            self.write_folder_data(calc.outputs.retrieved, 'vasprun.xml')
+            self.report("Wrote slab calculation data to vasprun.xml")
+            outcar_ase = read('vasprun.xml', format='vasp-xml')
+            self.report("Read slab calculation data from vasprun.xml")
+            os.remove('vasprun.xml')
+            self.report("Removed temporary vasprun.xml file")
+
+            # Extract Slab Information
+            energy_slab = outcar_ase.get_potential_energy() * self.ureg.eV
+            cell_params = outcar_ase.cell.cellpar() * self.ureg.angstrom
+            chemical_symbols_slab = outcar_ase.get_chemical_symbols()
+            self.report(f"Extracted slab information: energy_slab={energy_slab}, cell_params={cell_params}, chemical_symbols_slab={chemical_symbols_slab}")
+
+            # Store slab information
+            self.ctx.dict_results[label].update({
+                'energy_slab': energy_slab,
+                'a': cell_params[0],
+                'b': cell_params[1],
+                'elements': {symbol: chemical_symbols_slab.count(symbol) for symbol in self.ctx.unique_symbols}
+            })
+            self.report(f"Stored slab information for {label}: energy_slab={energy_slab}, a={cell_params[0]}, b={cell_params[1]}, elements={self.ctx.dict_results[label]['elements']}")
+        except Exception as e:
+            self.report(f"Error in process_slab_calculation for label {label}: {e}")
+
+
+    def calculate_gamma_and_store_results(self, label):
+        try:
+            elements_count = self.ctx.dict_results[label]['elements']
+            composition_bulk = self.ctx.composition_bulk
+            energy_bulk = self.ctx.energy_bulk
+
+            delta_me_ag = elements_count[self.ctx.unique_symbols[0]] - composition_bulk[0] * elements_count[self.ctx.unique_symbols[1]]
+            delta_me_o = elements_count[self.ctx.unique_symbols[2]] - composition_bulk[2] * elements_count[self.ctx.unique_symbols[1]]
+            self.report(f"Calculated Delta_Me: delta_me_ag={delta_me_ag}, delta_me_o={delta_me_o}")
+
+            self.ctx.dict_results[label].update({
+                'Delta_Me_Ag': delta_me_ag,
+                'Delta_Me_O': delta_me_o
+            })
+            self.report(f"Updated results with Delta_Me_Ag and Delta_Me_O for {label}")
+
+            # Calculate psi
+            energy_ag = self.inputs.total_energy_first_element.value * self.ureg.eV
+            energy_o2 = self.inputs.total_energy_o2.value * self.ureg.eV
+            psi = (
+                self.ctx.dict_results[label]['energy_slab']
+                - elements_count[self.ctx.unique_symbols[1]] * energy_bulk / composition_bulk[1]
+                - energy_ag * delta_me_ag
+                - 0.5 * delta_me_o * energy_o2
+            )
+            self.ctx.dict_results[label]['psi'] = psi
+            self.report(f"Calculated psi for {label}: psi={psi}")
+
+            # Define temperature range and Delta_Gs
+            range_of_T = [t * self.ureg.K for t in range(100, 1300, 100)]  # Temperature (K)
+            Delta_Gs = [-0.15, -0.341, -0.548, -0.765, -0.991, -1.222, -1.460, -1.702, -1.949, -2.199, -2.453, -2.711]
+            Delta_Gs = [g * self.ureg.eV for g in Delta_Gs]
+            self.report(f"Defined temperature range and Delta_Gs: range_of_T={range_of_T}, Delta_Gs={Delta_Gs}")
+
+            # Calculate delta_mu
+            lim_delta_o = self.inputs.HF_bulk.value / composition_bulk[2]
+            delta_mu = np.linspace(0, lim_delta_o, 20) * self.ureg.eV
+            self.ctx.dict_results[label]['delta_mu'] = delta_mu.copy()
+            self.report(f"Calculated delta_mu for {label}: delta_mu={delta_mu}")
+
+            # Precompute reusable values
+            a = self.ctx.dict_results[label]['a']
+            b = self.ctx.dict_results[label]['b']
+            psi = self.ctx.dict_results[label]['psi']
+            factor = 1 / (2 * a * b)
+
+            # Calculate gamma for each delta_mu
+            gamma = []
+            for m in delta_mu:
+                try:
+                    gamma_value = factor * (
+                        psi
+                        - self.ctx.dict_results[label]['Delta_Me_Ag'] * 0 * self.ureg.eV  # delta_mu_ag is zero
+                        - self.ctx.dict_results[label]['Delta_Me_O'] * m
+                    )
+                    gamma.append(gamma_value.to('J/m^2').magnitude)
+                except Exception as e:
+                    self.report(f"Error in gamma calculation for label {label}, delta_mu={m}: {e}")
+                    gamma.append(None)
+            self.ctx.dict_results[label]['gamma_delta_o'] = gamma
+            self.report(f"Calculated gamma_delta_o for {label}: gamma_delta_o={gamma}")
+        except Exception as e:
+            self.report(f"Error in calculate_gamma_and_store_results for label {label}: {e}")
+
+
+    def precompute_phase_diagram_parameters(self):
+        try:
             precision = self.inputs.precision_phase_diagram.value
+            composition_bulk = self.ctx.composition_bulk
             lim_delta_ag = self.inputs.HF_bulk.value / composition_bulk[0]
             lim_delta_o = self.inputs.HF_bulk.value / composition_bulk[2]
             delta_ag = np.linspace(0, lim_delta_ag, precision) * self.ureg.eV
             delta_o = np.linspace(0, lim_delta_o, precision) * self.ureg.eV
-            gamma_delta_ag_delta_o = np.zeros((precision, precision))
-            self.report(f"Defined precision and calculated delta_ag and delta_o: precision={precision}, lim_delta_ag={lim_delta_ag}, lim_delta_o={lim_delta_o}")
+            return precision, delta_ag, delta_o
+        except Exception as e:
+            self.report(f"Error in precompute_phase_diagram_parameters: {e}")
+            raise
 
-            for i, ag in enumerate(delta_ag):
-                for j, o in enumerate(delta_o):
-                    gamma_value = (
-                        1 / (2 * self.ctx.dict_results[label]['a'].magnitude * self.ctx.dict_results[label]['b'].magnitude)
-                    ) * (
-                        self.ctx.dict_results[label]['psi'].magnitude
-                        - self.ctx.dict_results[label]['Delta_Me_Ag'] * ag
-                        - self.ctx.dict_results[label]['Delta_Me_O'] * o
-                    )
-                    gamma_delta_ag_delta_o[i, j] = gamma_value
-            self.report("Calculated gamma_delta_ag_delta_o matrix")
 
-            self.ctx.dict_results[label].update({
-                'delta_ag': delta_ag.magnitude,
-                'delta_o': delta_o.magnitude,
-                'gamma_delta_ag_delta_o': gamma_delta_ag_delta_o
-            })
-            self.report(f"Updated results with delta_ag, delta_o, and gamma_delta_ag_delta_o for {label}")
+    def validate_dict_results_keys(self, label):
+        try:
+            required_keys = ['a', 'b', 'psi', 'Delta_Me_Ag', 'Delta_Me_O']
+            for key in required_keys:
+                if key not in self.ctx.dict_results[label]:
+                    self.report(f"Missing expected key '{key}' in dict_results for label {label}. Skipping this label.")
+                    return False
+            return True
+        except Exception as e:
+            self.report(f"Error in validate_dict_results_keys for label {label}: {e}")
+            return False
 
-            # Convert quantities to magnitudes
-            for key, value in self.ctx.dict_results[label].items():
-                if isinstance(value, self.ureg.Quantity):
-                    self.ctx.dict_results[label][key] = value.magnitude
-                    self.report(f"Converted {key} to magnitude for {label}")
+
+    def calculate_gamma_value(self, factor, psi, delta_me_ag, delta_me_o, ag, o):
+        try:
+            return factor * (psi - delta_me_ag * ag - delta_me_o * o)
+        except Exception as e:
+            self.report(f"Error in calculate_gamma_value: {e}")
+            raise
+
+
+    def identify_most_stable_structure(self, delta_mu_values, target, label_desc):
+        try:
+            idx = np.argmin(np.abs(delta_mu_values - target))
+            closest_delta_mu = delta_mu_values[idx]
+            self.report(f"Closest delta_mu to {target} eV is {closest_delta_mu} eV at index {idx}")
+
+            gamma_at_target = {
+                structure_name: info_structure['gamma_delta_o'][idx]
+                for structure_name, info_structure in self.ctx.dict_results.items()
+            }
+            self.report(f"Gamma at target for {label_desc}: {gamma_at_target}")
+
+            most_stable_structure = min(gamma_at_target, key=gamma_at_target.get)
+            return most_stable_structure
+        except Exception as e:
+            self.report(f"Error in identify_most_stable_structure for target {target}, label_desc {label_desc}: {e}")
+            raise
+
+
+    def calculate_phase_diagram(self):
+        try:
+            precision, delta_ag, delta_o = self.precompute_phase_diagram_parameters()
+            self.report(f"Defined precision and calculated delta_ag and delta_o: precision={precision}, lim_delta_ag={delta_ag[-1]}, lim_delta_o={delta_o[-1]}")
+
+            for label in self.ctx.dict_results.keys():
+                # Validate the required keys in dict_results
+                if not self.validate_dict_results_keys(label):
+                    continue
+
+                gamma_delta_ag_delta_o = np.zeros((precision, precision))
+
+                # Precompute reusable values
+                a = self.ctx.dict_results[label]['a'].magnitude
+                b = self.ctx.dict_results[label]['b'].magnitude
+                psi = self.ctx.dict_results[label]['psi'].magnitude
+                delta_me_ag = self.ctx.dict_results[label]['Delta_Me_Ag']
+                delta_me_o = self.ctx.dict_results[label]['Delta_Me_O']
+                factor = 1 / (2 * a * b)
+
+                for i, ag in enumerate(delta_ag):
+                    for j, o in enumerate(delta_o):
+                        try:
+                            gamma_value = self.calculate_gamma_value(factor, psi, delta_me_ag, delta_me_o, ag, o)
+                            gamma_delta_ag_delta_o[i, j] = gamma_value
+                        except Exception as e:
+                            self.report(f"Error in calculating gamma_value for label {label}, ag={ag}, o={o}: {e}")
+                            gamma_delta_ag_delta_o[i, j] = None
+                self.report(f"Calculated gamma_delta_ag_delta_o matrix for {label}")
+
+                self.ctx.dict_results[label].update({
+                    'delta_ag': delta_ag.magnitude,
+                    'delta_o': delta_o.magnitude,
+                    'gamma_delta_ag_delta_o': gamma_delta_ag_delta_o
+                })
+                self.report(f"Updated results with delta_ag, delta_o, and gamma_delta_ag_delta_o for {label}")
 
             # Sort results by label
             self.ctx.dict_results = dict(sorted(self.ctx.dict_results.items(), key=lambda item: item[0]))
@@ -812,40 +885,6 @@ class AiiDATEROSWorkChain(WorkChain):
             most_stable = {}
             self.report(f"Identifying most stable structures for target_delta_mu: {target_delta_mu}")
 
-            for target, label_desc in zip(target_delta_mu, target_labels):
-                idx = np.argmin(np.abs(delta_mu_values - target))
-                closest_delta_mu = delta_mu_values[idx]
-                self.report(f"Closest delta_mu to {target} eV is {closest_delta_mu} eV at index {idx}")
-
-                gamma_at_target = {
-                    structure_name: info_structure['gamma_delta_o'][idx]
-                    for structure_name, info_structure in self.ctx.dict_results.items()
-                }
-                self.report(f"Gamma at target for {label_desc}: {gamma_at_target}")
-
-                most_stable_structure = min(gamma_at_target, key=gamma_at_target.get)
-                most_stable[target] = most_stable_structure
-                self.report(f"Most stable structure for {label_desc}: {most_stable_structure}")
-
-            self.ctx.most_stable_delta_mu_0 = most_stable.get(0.0)
-            self.ctx.most_stable_delta_mu_minus_2 = most_stable.get(-2.0)
-            self.report(f"Stored most stable structures: delta_mu=0 -> {self.ctx.most_stable_delta_mu_0}, delta_mu=-2 -> {self.ctx.most_stable_delta_mu_minus_2}")
-
-            # Collect stable structures
-            stable_structures = [
-                calc for calc in self.ctx.relax_calcs
-                if calc.label in [self.ctx.most_stable_delta_mu_0, self.ctx.most_stable_delta_mu_minus_2]
-            ]
-            self.report(f"Collected stable structures: {[calc.label for calc in stable_structures]}")
-
-            # Output the stable structures
-            for n, calc in enumerate(stable_structures):
-                structure_dict = {
-                    output.link_label: output.node
-                    for output in calc.base.links.get_outgoing().all()
-                }
-                self.out(f'stable_structures.{calc.label}', structure_dict)
-                self.report(f"Outputted stable structure: {calc.label}")
 
     def plot_gammas_ternary(self):
     
