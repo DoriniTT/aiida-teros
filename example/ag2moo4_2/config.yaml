@@ -1,19 +1,18 @@
 # Paths and File Names
-bulk_structure_path: "/home/thiagotd/git/aiida_teros/example/cu3mo2o9/cu3mo2o9.vasp"
+bulk_structure_path: "/home/thiagotd/git/aiida_teros/example/ag2moo4_2/beta_ag2moo4_opt.vasp"
 potential_family: "PBE"  # Example: 'PBE', 'GGA', etc.
 code_label: "VASPVTST-6.4.1@bohr-vtst"
 # code_label: "VASP-6.4.1@cluster02"
 
 # Thermodynamic Parameters
 thermodynamic_parameters:
-  hf_bulk: -20.65  # Heat of formation for bulk. Must be in eV per formula unit.
+  hf_bulk: -10.979718545  # Heat of formation for bulk. Must be in eV per formula unit.
 # Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
 total_energies:
-  total_energy_first_element: -3.9  # Energy of the first element (e.g., Ag)
+  total_energy_first_element: -2.8289  # Energy of the first element (e.g., Ag)
   total_energy_o2: -9.82  # Energy for O2 molecule
 
 # OPTIONAL: Give the path of specific terminations that you want to study.
-
 #terminations:   # Uncomment this line as well to use terminations
 #  slab1: "termination1.vasp"
 
@@ -65,9 +64,9 @@ workflow_settings:
 
 # Potential Mapping
 potential_mapping:
+  Ag: "Ag"
   Mo: "Mo"
   O: "O"
-  Cu: "Cu"
 
 # Parser Settings
 parser_settings:
@@ -86,5 +85,5 @@ computer_options:
 
 # Slab Generation Parameters
 slab_parameters:
-  miller_indices: [1, 0, 0]  # Example: [1, 1, 0]
+  miller_indices: [1, 1, 0]  # Example: [1, 1, 0]
   min_slab_thickness: 10.0  # Minimum slab thickness in Å

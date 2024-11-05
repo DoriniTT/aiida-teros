@@ -181,7 +181,7 @@ class AiiDATEROSWorkChain(WorkChain):
         spec.input(
             'precision_phase_diagram', 
             valid_type=Int, 
-            default=lambda: Int(200), 
+            default=lambda: Int(500), 
             help='Precision for the phase diagram.'
         )
         
@@ -222,7 +222,7 @@ class AiiDATEROSWorkChain(WorkChain):
             ).else_(
             cls.result_ternary,        # Step 6: Create a dictionary with the results
             cls.plot_gammas_ternary,  # Step 7: Plot gamma vs delta_o with temperature
-            cls.plot_phase_diagram,    # Step 8: Plot the combined figures
+            #cls.plot_phase_diagram,    # Step 8: Plot the combined figures
             )
         )
 
@@ -289,7 +289,8 @@ class AiiDATEROSWorkChain(WorkChain):
             )
 
             # Submit the bulk relaxation calculation
-            future = self.submit(builder)
+            future = load_node(126154)
+            #future = self.submit(builder)
             #future = load_node(139563)
             self.report(f'Submitted VASP relaxation for bulk structure with PK {future.pk}')
             return ToContext(relax_bulk=future)
@@ -329,7 +330,9 @@ class AiiDATEROSWorkChain(WorkChain):
                     self.report('Bulk relaxation did not finish successfully.')
                     return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
-                relaxed_bulk = relax_bulk_calc.outputs.structure
+                #relaxed_bulk = relax_bulk_calc.outputs.structure
+                #! Just for test purposes!!
+                relaxed_bulk = StructureData(ase=read('/home/thiagotd/git/aiida_teros/example/ag2moo4_2/beta_ag2moo4_opt.vasp', format='vasp'))
 
                 # Convert AiiDA StructureData to pymatgen Structure
                 bulk_structure = relaxed_bulk.get_pymatgen()
@@ -396,13 +399,13 @@ class AiiDATEROSWorkChain(WorkChain):
 
                 # Submit the relaxation calculation
                 if n == 1:
-                    future = load_node(223770)
+                    future = load_node(1494)
                 elif n == 2:
-                    future = load_node(223807)
+                    future = load_node(1347)
                 elif n == 3:
-                    future = load_node(223831)
+                    future = load_node(1425)
                 elif n == 4:
-                    future = load_node(223796)
+                    future = load_node(1623)
                 #future = self.submit(builder)
                 self.report(f'Submitted relaxation for slab_{n} with PK {future.pk}')
                 self.to_context(relax_calculations=append_(future))
@@ -640,8 +643,9 @@ class AiiDATEROSWorkChain(WorkChain):
             self.process_bulk_calculation()
 
             # Process each slab calculation
-            for calc in self.ctx.relax_calcs:
-                label = calc.label
+            for n, calc in enumerate(self.ctx.relax_calcs,start=1):
+                #label = calc.label
+                label = f'structure_{n}'
                 self.ctx.exemple_label = label
                 self.ctx.dict_results[label] = {}
                 self.report(f"Processing calculation with label: {label}")
@@ -660,7 +664,7 @@ class AiiDATEROSWorkChain(WorkChain):
             #self.generate_latex_table(termination_data, ternary_path)
 
             # Calculate gamma over range of Delta_Ag and Delta_O
-            self.calculate_phase_diagram()
+            #self.calculate_phase_diagram()
         except Exception as e:
             self.report(f"Error in result_ternary: {e}")
     
@@ -727,6 +731,7 @@ class AiiDATEROSWorkChain(WorkChain):
             self.report(f"Stored slab information for {label}: energy_slab={energy_slab}, a={cell_params[0]}, b={cell_params[1]}, elements={self.ctx.dict_results[label]['elements']}")
         except Exception as e:
             self.report(f"Error in process_slab_calculation for label {label}: {e}")
+
 
     def calculate_gamma_and_store_results(self, label):
         try:
@@ -849,10 +854,10 @@ class AiiDATEROSWorkChain(WorkChain):
         try:
             precision = self.inputs.precision_phase_diagram.value
             composition_bulk = self.ctx.composition_bulk
-            lim_delta_ag = self.ctx.lim_delta_ag = self.inputs.HF_bulk.value / composition_bulk[0]
+            lim_delta_ag = self.inputs.HF_bulk.value / composition_bulk[0]
             lim_delta_o = self.inputs.HF_bulk.value / composition_bulk[2]
-            delta_ag = np.linspace(0, lim_delta_ag, precision)
-            delta_o = np.linspace(0, lim_delta_o, precision)
+            delta_ag = np.linspace(0, lim_delta_ag, precision) * ureg.eV
+            delta_o = np.linspace(0, lim_delta_o, precision) * ureg.eV
 
             self.report(f"Precision: {precision}")
             self.report(f"Composition Bulk: {composition_bulk}")
@@ -878,9 +883,13 @@ class AiiDATEROSWorkChain(WorkChain):
             return False
 
     def calculate_gamma_value(self, factor, psi, delta_me_ag, delta_me_o, ag, o):
-
-        gamma_value = factor * (psi - delta_me_ag * ag - delta_me_o * o)
-        return gamma_value
+        try:
+            gamma_value = factor * (psi - delta_me_ag * ag - delta_me_o * o)
+            self.report(f"Calculated gamma value: {gamma_value}")
+            return gamma_value
+        except Exception as e:
+            self.report(f"Error in calculate_gamma_value: {e}")
+            raise
 
     def identify_most_stable_structure(self, delta_mu_values, target, label_desc):
         try:
@@ -919,9 +928,6 @@ class AiiDATEROSWorkChain(WorkChain):
                 delta_me_ag = self.ctx.dict_results[label]['Delta_Me_Ag']
                 delta_me_o = self.ctx.dict_results[label]['Delta_Me_O']
                 factor = 1 / (2 * a * b)
-
-                # Report the precomputed values
-                self.report(f"Precomputed values for {label}: a={a}, b={b}, psi={psi}, delta_me_ag={delta_me_ag}, delta_me_o={delta_me_o}, factor={factor}. These values will be used to calculate the phase diagram.")
     
                 for i, ag in enumerate(delta_ag):
                     for j, o in enumerate(delta_o):
@@ -934,8 +940,8 @@ class AiiDATEROSWorkChain(WorkChain):
                 self.report(f"Calculated gamma_delta_ag_delta_o matrix for {label}")
     
                 self.ctx.dict_results[label].update({
-                    'delta_ag': delta_ag,
-                    'delta_o': delta_o,
+                    'delta_ag': delta_ag.magnitude,
+                    'delta_o': delta_o.magnitude,
                     'gamma_delta_ag_delta_o': gamma_delta_ag_delta_o
                 })
                 self.report(f"Updated results with delta_ag, delta_o, and gamma_delta_ag_delta_o for {label}")
@@ -944,40 +950,40 @@ class AiiDATEROSWorkChain(WorkChain):
             self.ctx.dict_results = dict(sorted(self.ctx.dict_results.items(), key=lambda item: item[0]))
             self.report("Sorted dict_results by label")
     
-            #* Identify the most stable structures
-#            try:
-#                delta_mu_values = np.array([dm for dm in self.ctx.dict_results[self.ctx.exemple_label]['delta_mu']])
-#                target_delta_mu = [0.0, -2.0]
-#                target_labels = ['delta_mu = 0 eV', 'delta_mu = -2 eV']
-#                most_stable = {}
-#                self.report(f"Identifying most stable structures for target_delta_mu: {target_delta_mu}")
-#    
-#                for target, label_desc in zip(target_delta_mu, target_labels):
-#                    most_stable_structure = self.identify_most_stable_structure(delta_mu_values, target, label_desc)
-#                    most_stable[target] = most_stable_structure
-#                    self.report(f"Most stable structure for {label_desc}: {most_stable_structure}")
-#    
-#                self.ctx.most_stable_delta_mu_0 = most_stable.get(0.0)
-#                self.ctx.most_stable_delta_mu_minus_2 = most_stable.get(-2.0)
-#                self.report(f"Stored most stable structures: delta_mu=0 -> {self.ctx.most_stable_delta_mu_0}, delta_mu=-2 -> {self.ctx.most_stable_delta_mu_minus_2}")
-#    
-#                # Collect stable structures
-#                stable_structures = [
-#                    calc for calc in self.ctx.relax_calcs
-#                    if calc.label in [self.ctx.most_stable_delta_mu_0, self.ctx.most_stable_delta_mu_minus_2]
-#                ]
-#                self.report(f"Collected stable structures: {[calc.label for calc in stable_structures]}")
-#    
-#                # Output the stable structures
-#                for n, calc in enumerate(stable_structures):
-#                    structure_dict = {
-#                        output.link_label: output.node
-#                        for output in calc.base.links.get_outgoing().all()
-#                    }
-#                    self.out(f'stable_structures.{calc.label}', structure_dict)
-#                    self.report(f"Outputted stable structure: {calc.label}")
-#            except Exception as e:
-#                self.report(f"Error in identifying most stable structures: {e}")
+            # Identify the most stable structures
+            try:
+                delta_mu_values = np.array([dm for dm in self.ctx.dict_results[self.ctx.exemple_label]['delta_mu']])
+                target_delta_mu = [0.0, -2.0]
+                target_labels = ['delta_mu = 0 eV', 'delta_mu = -2 eV']
+                most_stable = {}
+                self.report(f"Identifying most stable structures for target_delta_mu: {target_delta_mu}")
+    
+                for target, label_desc in zip(target_delta_mu, target_labels):
+                    most_stable_structure = self.identify_most_stable_structure(delta_mu_values, target, label_desc)
+                    most_stable[target] = most_stable_structure
+                    self.report(f"Most stable structure for {label_desc}: {most_stable_structure}")
+    
+                self.ctx.most_stable_delta_mu_0 = most_stable.get(0.0)
+                self.ctx.most_stable_delta_mu_minus_2 = most_stable.get(-2.0)
+                self.report(f"Stored most stable structures: delta_mu=0 -> {self.ctx.most_stable_delta_mu_0}, delta_mu=-2 -> {self.ctx.most_stable_delta_mu_minus_2}")
+    
+                # Collect stable structures
+                stable_structures = [
+                    calc for calc in self.ctx.relax_calcs
+                    if calc.label in [self.ctx.most_stable_delta_mu_0, self.ctx.most_stable_delta_mu_minus_2]
+                ]
+                self.report(f"Collected stable structures: {[calc.label for calc in stable_structures]}")
+    
+                # Output the stable structures
+                for n, calc in enumerate(stable_structures):
+                    structure_dict = {
+                        output.link_label: output.node
+                        for output in calc.base.links.get_outgoing().all()
+                    }
+                    self.out(f'stable_structures.{calc.label}', structure_dict)
+                    self.report(f"Outputted stable structure: {calc.label}")
+            except Exception as e:
+                self.report(f"Error in identifying most stable structures: {e}")
         except Exception as e:
             self.report(f"Error in calculate_phase_diagram: {e}")
 
@@ -1164,7 +1170,7 @@ class AiiDATEROSWorkChain(WorkChain):
         # Adjust layout and save the combined figure
         plt.tight_layout()
         fig.subplots_adjust(wspace=0)  # Remove space between subplots
-        fig.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/ternary/surface_phase_diagram.pdf')
+        fig.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/surface_phase_diagram.pdf')
 
     # Helper Methods
     def get_vasp_builder(
