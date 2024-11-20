@@ -514,7 +514,7 @@ class AiiDATEROSWorkChain(WorkChain):
         delta_Hf = self.inputs.HF_bulk.value
         E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
         bulk_structure = self.inputs.bulk_structure.get_ase()
-        bulk_metal_structure = self.inputs.bulk_metal_structure.get_ase()
+        bulk_metal_structure = self.inputs.bulk_metal.get_ase()
         # Get the number of atoms in bulk_metal_structure as an integer
         num_atoms_bulk_metal_structure = len(bulk_metal_structure)
         E_bulk_metal = self.ctx.relax_bulk_metal.outputs.misc.get_dict()['total_energies']['energy_extrapolated'] / num_atoms_bulk_metal_structure
@@ -569,7 +569,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
             gamma_values = []
             for mu_O in mu_O_values:
-                gamma = (2*A)^(-1) * (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O) / (2 * A)
+                gamma = (2*A)**(-1) * (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O)
                 gamma = gamma * 1.602176634e-19 * 1e20 # eV/Å² to J/m²
                 gamma_values.append(gamma)
 
