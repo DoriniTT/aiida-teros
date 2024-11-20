@@ -462,7 +462,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
             # Get the VASP builder with bulk INCAR parameters
             builder = self.get_vasp_builder(
-                structure=self.inputs.bulk_metal_structure,
+                structure=self.inputs.bulk_metal,
                 incar_parameters=incar_bulk,
                 kpoint_density=self.inputs.kpoints_precision.value,
                 label='relax_bulk_metal_structure',
@@ -476,7 +476,7 @@ class AiiDATEROSWorkChain(WorkChain):
             return ToContext(relax_bulk_metal=future)
 
         except Exception as e:
-            self.report(f'Failed to submit bulk relaxation: {e}')
+            self.report(f'Failed to submit bulk metal relaxation: {e}')
             return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
     def inspect_relax_bulk_metal(self):
