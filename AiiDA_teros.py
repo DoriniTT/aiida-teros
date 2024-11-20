@@ -94,6 +94,12 @@ class AiiDATEROSWorkChain(WorkChain):
             help='Bulk material structure.'
         )
 
+        spec.input(
+            'bulk_metal', 
+            valid_type=StructureData, 
+            help='Bulk material of the metal.'
+        )
+
         spec.input_namespace(
             'terminations', 
             valid_type=StructureData, 
@@ -105,6 +111,11 @@ class AiiDATEROSWorkChain(WorkChain):
         spec.input_namespace(
             'incar_parameters_bulk', 
             help='INCAR parameters for relaxation of the bulk.', 
+            dynamic=True
+        )
+        spec.input_namespace(
+            'incar_parameters_bulk_metal', 
+            help='INCAR parameters for relaxation of the bulk metal.', 
             dynamic=True
         )
         spec.input_namespace(
@@ -218,6 +229,8 @@ class AiiDATEROSWorkChain(WorkChain):
             cls.inspect_relax_all_slabs,   # Step 5: Inspect relaxation results
 
             if_(cls.is_binary)(
+            cls.run_relax_bulk_metal,            # Step 1: Relax bulk structure
+            cls.inspect_relax_bulk_metal,        # Step 2: Inspect bulk relaxation results
             cls.result_binary,         # Step 6: Create a dictionary with the results
             cls.plot_gammas_binary,    # Step 7: Plot gamma vs delta_o with temperature
             ).else_(
@@ -231,6 +244,11 @@ class AiiDATEROSWorkChain(WorkChain):
         spec.expose_outputs(
             VaspWorkflow, 
             namespace='bulk'
+        )
+        spec.expose_outputs(
+            VaspWorkflow, 
+            namespace='bulk_metal',
+            required=False,
         )
         spec.output_namespace(
             'relaxations', 
@@ -433,6 +451,47 @@ class AiiDATEROSWorkChain(WorkChain):
 
             self.report(f'Relaxation for slab_{n} completed successfully.')
 
+    def run_relax_bulk_metal(self):
+        """
+        Run a VASP relaxation of the bulk structure.
+        """
+        self.report('Running relaxation of the bulk structure.')
+
+        try:
+            # Get INCAR parameters for bulk relaxation
+            incar_bulk = self.inputs.incar_parameters_bulk_metal
+
+            # Get the VASP builder with bulk INCAR parameters
+            builder = self.get_vasp_builder(
+                structure=self.inputs.bulk_metal_structure,
+                incar_parameters=incar_bulk,
+                kpoint_density=self.inputs.kpoints_precision.value,
+                label='relax_bulk_metal_structure',
+                description='Bulk relaxation of the metal'
+            )
+
+            # Submit the bulk relaxation calculation
+            future = self.submit(builder)
+            #future = load_node(139563)
+            self.report(f'Submitted VASP relaxation for bulk structure with PK {future.pk}')
+            return ToContext(relax_bulk_metal=future)
+
+        except Exception as e:
+            self.report(f'Failed to submit bulk relaxation: {e}')
+            return self.exit_codes.ERROR_RELAX_BULK_FAILED
+
+    def inspect_relax_bulk_metal(self):
+        """
+        Inspect the result of the bulk relaxation.
+        """
+        if not self.ctx.relax_bulk_metal.is_finished_ok:
+            self.report(f'Relaxation of bulk metal failed with exit status {self.ctx.relax_bulk_metal.exit_status}')
+            return self.exit_codes.ERROR_RELAX_BULK_FAILED
+
+        # Expose bulk relaxation outputs
+        self.out_many(self.exposed_outputs(self.ctx.relax_bulk_metal, VaspWorkflow, namespace='bulk_metal'))
+        self.report('Metal bulk relaxation completed successfully.')
+
     def result_binary(self):
         """
         Calculate the surface total energy for all slab terminations and store the results.
@@ -455,15 +514,12 @@ class AiiDATEROSWorkChain(WorkChain):
 
         delta_Hf = self.inputs.HF_bulk.value
         E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
-        bulk_structure = self.inputs.bulk_structure
+        bulk_structure = self.inputs.bulk_structure.get_ase()
+        bulk_metal_structure = self.inputs.bulk_metal_structure.get_ase()
+        # Get the number of atoms in bulk_metal_structure as an integer
+        num_atoms_bulk_metal_structure = len(bulk_metal_structure)
+        E_bulk_metal = self.ctx.relax_bulk_metal.outputs.misc.get_dict()['total_energies']['energy_extrapolated'] / num_atoms_bulk_metal_structure
 
-        # Calculate limits for the chemical potential of oxygen
-        lower_limit = 0.5 * delta_Hf
-        upper_limit = 0
-
-        self.report('Calculated limits for the chemical potential of oxygen.')
-
-        bulk_structure = bulk_structure.get_ase()
         element_counts = Counter(atom.symbol for atom in bulk_structure)
         gcd_value = np.gcd.reduce(list(element_counts.values()))
         
@@ -472,8 +528,13 @@ class AiiDATEROSWorkChain(WorkChain):
                 y = natoms / gcd_value
             else:
                 x = natoms / gcd_value
-
         self.report('Determined the minimal composition of the bulk structure.')
+
+        self.report('Calculated limits for the chemical potential of oxygen.')
+        lower_limit = 1/y * (E_bulk - x * E_bulk_metal)
+        upper_limit = lower_limit + 1/y * delta_Hf
+        self.report('The lower limit for the chemical potential of oxygen is: {}'.format(lower_limit))
+        self.report('The upper limit for the chemical potential of oxygen is: {}'.format(upper_limit))
 
         mu_O_values = self.ctx.mu_O_values = [lower_limit, upper_limit]
         gammas = {}
@@ -509,7 +570,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
             gamma_values = []
             for mu_O in mu_O_values:
-                gamma = (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O) / (2 * A)
+                gamma = (2*A)^(-1) * (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O) / (2 * A)
                 gamma = gamma * 1.602176634e-19 * 1e20 # eV/Å² to J/m²
                 gamma_values.append(gamma)
 

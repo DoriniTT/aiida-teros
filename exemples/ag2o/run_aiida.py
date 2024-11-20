@@ -24,7 +24,7 @@ from aiida.orm import (
     Str,
     List
 )
-from aiida_teros.test.AiiDA_teros import AiiDATEROSWorkChain
+from aiida_teros.exemples.ag2o.AiiDA_teros import AiiDATEROSWorkChain
 
 # ================================================
 # Configuration Section
@@ -52,12 +52,14 @@ config = load_config(CONFIG_FILE)
 
 # Extract configuration parameters
 BULK_STRUCTURE_PATH = config['bulk_structure_path']
+BULK_METAL_STRUCTURE_PATH = config['bulk_metal_structure_path']
 POTENTIAL_FAMILY = config['potential_family']
 CODE_LABEL = config['code_label']
 HF_BULK = config['thermodynamic_parameters']['hf_bulk']
 TOTAL_ENERGY_FIRST_ELEMENT = config['total_energies']['total_energy_first_element']
 TOTAL_ENERGY_O2 = config['total_energies']['total_energy_o2']
 INCAR_PARAMETERS_BULK = config['incar_parameters_bulk']
+INCAR_PARAMETERS_BULK_METAL = config['incar_parameters_bulk_metal']
 INCAR_PARAMETERS_SLAB = config['incar_parameters_slab']
 WORKFLOW_SETTINGS = config['workflow_settings']
 POTENTIAL_MAPPING = config['potential_mapping']
@@ -188,12 +190,15 @@ def main():
 
     # Load the bulk structure
     bulk_structure = load_bulk_structure(BULK_STRUCTURE_PATH)
+    bulk_metal_structure = load_bulk_structure(BULK_METAL_STRUCTURE_PATH)
 
     # Create AiiDA data nodes for inputs
     inputs = {
         'code': load_vasp_code(CODE_LABEL),
         'bulk_structure': bulk_structure,
+        'bulk_metal': bulk_metal_structure,
         'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
+        'incar_parameters_bulk_metal': INCAR_PARAMETERS_BULK_METAL,
         'incar_parameters_slab': INCAR_PARAMETERS_SLAB,
         'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
         'potential_mapping': Dict(dict=POTENTIAL_MAPPING),
