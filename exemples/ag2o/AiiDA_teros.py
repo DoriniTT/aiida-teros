@@ -247,8 +247,7 @@ class AiiDATEROSWorkChain(WorkChain):
         )
         spec.expose_outputs(
             VaspWorkflow, 
-            namespace='bulk_metal',
-            required=False,
+            namespace='bulk_metal1',
         )
         spec.output_namespace(
             'relaxations', 
@@ -463,7 +462,7 @@ class AiiDATEROSWorkChain(WorkChain):
 
             # Get the VASP builder with bulk INCAR parameters
             builder = self.get_vasp_builder(
-                structure=self.inputs.bulk_metal_structure,
+                structure=self.inputs.bulk_metal,
                 incar_parameters=incar_bulk,
                 kpoint_density=self.inputs.kpoints_precision.value,
                 label='relax_bulk_metal_structure',
@@ -477,7 +476,7 @@ class AiiDATEROSWorkChain(WorkChain):
             return ToContext(relax_bulk_metal=future)
 
         except Exception as e:
-            self.report(f'Failed to submit bulk relaxation: {e}')
+            self.report(f'Failed to submit bulk metal relaxation: {e}')
             return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
     def inspect_relax_bulk_metal(self):
@@ -489,7 +488,7 @@ class AiiDATEROSWorkChain(WorkChain):
             return self.exit_codes.ERROR_RELAX_BULK_FAILED
 
         # Expose bulk relaxation outputs
-        self.out_many(self.exposed_outputs(self.ctx.relax_bulk_metal, VaspWorkflow, namespace='bulk_metal'))
+        self.out_many(self.exposed_outputs(self.ctx.relax_bulk_metal, VaspWorkflow, namespace='bulk_metal1'))
         self.report('Metal bulk relaxation completed successfully.')
 
     def result_binary(self):
@@ -515,7 +514,7 @@ class AiiDATEROSWorkChain(WorkChain):
         delta_Hf = self.inputs.HF_bulk.value
         E_bulk = self.ctx.relax_bulk.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
         bulk_structure = self.inputs.bulk_structure.get_ase()
-        bulk_metal_structure = self.inputs.bulk_metal_structure.get_ase()
+        bulk_metal_structure = self.inputs.bulk_metal.get_ase()
         # Get the number of atoms in bulk_metal_structure as an integer
         num_atoms_bulk_metal_structure = len(bulk_metal_structure)
         E_bulk_metal = self.ctx.relax_bulk_metal.outputs.misc.get_dict()['total_energies']['energy_extrapolated'] / num_atoms_bulk_metal_structure
@@ -530,9 +529,18 @@ class AiiDATEROSWorkChain(WorkChain):
                 x = natoms / gcd_value
         self.report('Determined the minimal composition of the bulk structure.')
 
+        E_bulk_per_fu = E_bulk / gcd_value  # Energy per formula unit
+
         self.report('Calculated limits for the chemical potential of oxygen.')
-        lower_limit = 1/y * (E_bulk - x * E_bulk_metal)
+        lower_limit = 1/y * (E_bulk_per_fu - x * E_bulk_metal)
         upper_limit = lower_limit + 1/y * delta_Hf
+        #Report the all variables used in the calculation
+        self.report('The total energy of the bulk structure is: {}'.format(E_bulk_per_fu))
+        self.report('The total energy of the bulk metal structure is: {}'.format(E_bulk_metal))
+        self.report('The heat of formation of the bulk structure is: {}'.format(delta_Hf))
+        self.report('The minimal composition of the bulk structure is: {}'.format(gcd_value))
+        self.report('The number of atoms of the first element is: {}'.format(x))
+        self.report('The number of atoms of the second element is: {}'.format(y))
         self.report('The lower limit for the chemical potential of oxygen is: {}'.format(lower_limit))
         self.report('The upper limit for the chemical potential of oxygen is: {}'.format(upper_limit))
 
@@ -566,11 +574,9 @@ class AiiDATEROSWorkChain(WorkChain):
             if A == 0:
                 raise ValueError("Surface area cannot be zero.")
 
-            E_bulk_per_fu = E_bulk / gcd_value  # Energy per formula unit
-
             gamma_values = []
             for mu_O in mu_O_values:
-                gamma = (2*A)^(-1) * (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O) / (2 * A)
+                gamma = (2*A)**(-1) * (E_slab - (N_element_slab/x) * E_bulk_per_fu + ((y/x) * N_element_slab - N_O_slab) * mu_O)
                 gamma = gamma * 1.602176634e-19 * 1e20 # eV/Å² to J/m²
                 gamma_values.append(gamma)
 

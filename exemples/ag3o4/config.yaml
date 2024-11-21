@@ -1,5 +1,6 @@
 # Paths and File Names
-bulk_structure_path: "ag2o.vasp"
+module_path: "aiida_teros.exemples.ag3o4.AiiDA_teros"
+bulk_structure_path: "ag3o4.vasp"
 bulk_metal_structure_path: "ag.vasp"
 potential_family: "PBE"  # Example: 'PBE', 'GGA', etc.
 code_label: "VASPVTST-6.4.1@bohr-vtst"
@@ -7,7 +8,7 @@ code_label: "VASPVTST-6.4.1@bohr-vtst"
 
 # Thermodynamic Parameters
 thermodynamic_parameters:
-  hf_bulk: -1.884  # Heat of formation for bulk. Must be in eV per formula unit.
+  hf_bulk: -5.586  # Heat of formation for bulk. Must be in eV per formula unit.
 # Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
 total_energies:
   total_energy_first_element: -2.8289  # Energy of the first element (e.g., Ag)
@@ -107,5 +108,7 @@ computer_options:
 
 # Slab Generation Parameters
 slab_parameters:
-  miller_indices: [1, 1, 0]  # Example: [1, 1, 0]
+  miller_indices: [1, 0, 0]  # Example: [1, 1, 0]
   min_slab_thickness: 10.0  # Minimum slab thickness in Å
+  # Maximum number of terminations to generate
+  limit_number_of_terminations: 3 #* Comment this line if you want to generate all possible terminations

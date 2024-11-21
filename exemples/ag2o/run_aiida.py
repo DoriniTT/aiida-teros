@@ -24,7 +24,7 @@ from aiida.orm import (
     Str,
     List
 )
-from aiida_teros.test.AiiDA_teros import AiiDATEROSWorkChain
+from aiida_teros.exemples.ag2o.AiiDA_teros import AiiDATEROSWorkChain
 
 # ================================================
 # Configuration Section
@@ -196,7 +196,7 @@ def main():
     inputs = {
         'code': load_vasp_code(CODE_LABEL),
         'bulk_structure': bulk_structure,
-        'bulk_metal_structure': bulk_metal_structure,
+        'bulk_metal': bulk_metal_structure,
         'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
         'incar_parameters_bulk_metal': INCAR_PARAMETERS_BULK_METAL,
         'incar_parameters_slab': INCAR_PARAMETERS_SLAB,

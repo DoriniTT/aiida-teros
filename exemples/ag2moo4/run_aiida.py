@@ -12,7 +12,9 @@ Usage:
     python run_aiida.py
 """
 
-import os, sys, time, yaml
+import os
+import sys
+import time
 from ase.io import read
 from aiida.engine import submit
 from aiida import load_profile
@@ -21,58 +23,102 @@ from aiida.orm import (
     StructureData,
     Dict,
     Float,
+    Int,
     Str,
     List
 )
-from aiida_teros.test.AiiDA_teros import AiiDATEROSWorkChain
+from examples.ag2moo4.AiiDA_teros import AiiDATEROS
 
 # ================================================
 # Configuration Section
 # ================================================
 
-# Load configuration from config.yaml
-CONFIG_FILE = 'config.yaml'
+# Paths and File Names
+BULK_STRUCTURE_PATH = 'bulk_ag3po4.vasp'
+POTENTIAL_FAMILY = 'your_potential_family_here'  # Example: 'PBE', 'GGA', etc.
+CODE_LABEL = 'your_code@here'  # Label of the configured VASP code in AiiDA
+PKS_FILE = 'pks.txt'  # File to store submitted WorkChain PKs
 
-def load_config(config_file):
-    """
-    Load configuration from a YAML file.
+# Thermodynamic Parameters
+DIVIDE_TO_GET_MIN_COMPOSITION = 2  # For Ag3PO4
+HF_BULK = -10.979718545  # Heat of formation for bulk
+TOTAL_ENERGY_FIRST_ELEMENT = -2.8289  # Total energy for the first element (e.g., Ag)
+TOTAL_ENERGY_O2 = -9.82  # Total energy for O2 molecule
 
-    :param config_file: Path to the YAML configuration file.
-    :return: Configuration dictionary.
-    """
-    if not os.path.exists(config_file):
-        raise FileNotFoundError(f'Configuration file not found: {config_file}')
-    with open(config_file, 'r') as f:
-        config = yaml.safe_load(f)
-    print(f'Configuration loaded from {config_file}.')
-    return config
+# INCAR Parameters for Bulk and Slab Relaxations
+INCAR_PARAMETERS = {
+    'bulk': {
+        'ISMEAR': 0,
+        'SIGMA': 0.01,
+        'ENCUT': 550,
+        'NCORE': 2,
+        'ISPIN': 1,
+        'LREAL': 'Auto',
+        'PREC': 'Accurate',
+        'NELM': 60,
+        'NELMIN': 6,
+        'EDIFF': 1e-5,
+        'LWAVE': True,
+        'LORBIT': 11,
+        'IVDW': 12,
+    },
+    'slab': {
+        'ISMEAR': 0,
+        'SIGMA': 0.01,
+        'ENCUT': 550,
+        'NCORE': 2,
+        'ISPIN': 1,
+        'LREAL': 'Auto',
+        'PREC': 'Accurate',
+        'NELM': 60,
+        'NELMIN': 6,
+        'EDIFF': 1e-5,
+        'LWAVE': True,
+        'LORBIT': 11,
+        'IVDW': 12,
+    }
+}
 
-# Load configuration
-config = load_config(CONFIG_FILE)
+# Workflow Settings
+WORKFLOW_SETTINGS = {
+    'force_cutoff': 0.01,        # Force convergence criterion in eV/Å
+    'steps': 1000,               # Maximum number of relaxation steps
+    'kpoints_precision': 0.3,    # K-points mesh density
+    'phase_diagram_precision': 500,  # Precision for phase diagram calculations
+    'path_to_graphs': os.getcwd(),    # Directory to save generated plots
+}
 
-# Extract configuration parameters
-BULK_STRUCTURE_PATH = config['bulk_structure_path']
-BULK_METAL_STRUCTURE_PATH = config['bulk_metal_structure_path']
-POTENTIAL_FAMILY = config['potential_family']
-CODE_LABEL = config['code_label']
-HF_BULK = config['thermodynamic_parameters']['hf_bulk']
-TOTAL_ENERGY_FIRST_ELEMENT = config['total_energies']['total_energy_first_element']
-TOTAL_ENERGY_O2 = config['total_energies']['total_energy_o2']
-INCAR_PARAMETERS_BULK = config['incar_parameters_bulk']
-INCAR_PARAMETERS_BULK_METAL = config['incar_parameters_bulk_metal']
-INCAR_PARAMETERS_SLAB = config['incar_parameters_slab']
-WORKFLOW_SETTINGS = config['workflow_settings']
-POTENTIAL_MAPPING = config['potential_mapping']
-PARSER_SETTINGS = config['parser_settings']
-COMPUTER_OPTIONS = config['computer_options']
-SLAB_PARAMETERS = config['slab_parameters']
+# Potential Mapping
+POTENTIAL_MAPPING = {
+    'Ag': 'Ag',
+    'O': 'O',
+    'P': 'P',
+}
 
-# Check if 'terminations' exist in the config.yaml
-if 'terminations' in config:
-    dict_terminations = config['terminations']
-    TERMINATIONS = {struc: StructureData(ase=read(termination)) for struc, termination in dict_terminations.items()} # Load terminations
-else:
-    TERMINATIONS = None
+# Parser Settings
+PARSER_SETTINGS = {
+    'add_energies': True,
+    'add_trajectory': True,
+    'add_forces': True,
+    'add_structure': True,
+    'add_kpoints': True,
+}
+
+# Computer Options
+COMPUTER_OPTIONS = {
+    'resources': {
+        'num_machines': 1,
+        'num_cores_per_machine': 40
+    },
+    'queue_name': 'par40',
+}
+
+# Slab Generation Parameters
+SLAB_PARAMETERS = {
+    'miller_indices': [1, 1, 0],  # Example: [1, 1, 0]
+    'min_slab_thickness': 10.0,   # Minimum slab thickness in Å
+    'vacuum': 15.0,                # Vacuum spacing in Å
+}
 
 # ================================================
 # Helper Functions
@@ -190,16 +236,15 @@ def main():
 
     # Load the bulk structure
     bulk_structure = load_bulk_structure(BULK_STRUCTURE_PATH)
-    bulk_metal_structure = load_bulk_structure(BULK_METAL_STRUCTURE_PATH)
 
     # Create AiiDA data nodes for inputs
     inputs = {
         'code': load_vasp_code(CODE_LABEL),
         'bulk_structure': bulk_structure,
-        'bulk_metal_structure': bulk_metal_structure,
-        'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
-        'incar_parameters_bulk_metal': INCAR_PARAMETERS_BULK_METAL,
-        'incar_parameters_slab': INCAR_PARAMETERS_SLAB,
+        'incar_parameters_bulk': Dict(dict=INCAR_PARAMETERS['bulk']),
+        'incar_parameters_slabs': Dict(dict=INCAR_PARAMETERS['slab']),
+        'force_cutoff': Float(WORKFLOW_SETTINGS['force_cutoff']),
+        'steps': Int(WORKFLOW_SETTINGS['steps']),
         'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
         'potential_mapping': Dict(dict=POTENTIAL_MAPPING),
         'potential_family': Str(POTENTIAL_FAMILY),
@@ -207,14 +252,14 @@ def main():
         'computer_options': Dict(dict=COMPUTER_OPTIONS),
         'miller_indices': List(list=SLAB_PARAMETERS['miller_indices']),
         'min_slab_thickness': Float(SLAB_PARAMETERS['min_slab_thickness']),
+        'vacuum': Float(SLAB_PARAMETERS['vacuum']),
+        'divide_to_get_minimal_bulk_composition': Int(DIVIDE_TO_GET_MIN_COMPOSITION),
+        'precision_phase_diagram': Int(WORKFLOW_SETTINGS['phase_diagram_precision']),
         'HF_bulk': Float(HF_BULK),
         'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
         'total_energy_o2': Float(TOTAL_ENERGY_O2),
+        'path_to_graphs': Str(WORKFLOW_SETTINGS['path_to_graphs']),
     }
-
-    # Add terminations if they exist
-    if TERMINATIONS is not None:
-        inputs['terminations'] = TERMINATIONS
 
     # Submit the WorkChain
     try:
@@ -222,7 +267,6 @@ def main():
         future = submit(AiiDATEROSWorkChain, **inputs)
         print(f'Submitted AiiDATEROSWorkChain with PK {future.pk}')
 
-        PKS_FILE = 'pks.txt'  # File to store submitted WorkChain PKs
         # Save the PK of the WorkChain for future reference
         with open(PKS_FILE, 'a') as f:
             f.write(f'{future.pk}\n')
