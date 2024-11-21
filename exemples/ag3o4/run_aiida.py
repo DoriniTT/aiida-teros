@@ -23,9 +23,10 @@ from aiida.orm import (
     Dict,
     Float,
     Str,
+    Int,
     List
 )
-from aiida_teros.exemples.ag3o4.AiiDA_teros import AiiDATEROSWorkChain
+#from aiida_teros.exemples.ag3o4.AiiDA_teros import AiiDATEROSWorkChain
 
 # ================================================
 # Configuration Section
@@ -215,6 +216,7 @@ def main():
         'computer_options': Dict(dict=COMPUTER_OPTIONS),
         'miller_indices': List(list=SLAB_PARAMETERS['miller_indices']),
         'min_slab_thickness': Float(SLAB_PARAMETERS['min_slab_thickness']),
+        'limit_number_of_terminations': Int(SLAB_PARAMETERS['limit_number_of_terminations']),
         'HF_bulk': Float(HF_BULK),
         'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
         'total_energy_o2': Float(TOTAL_ENERGY_O2),

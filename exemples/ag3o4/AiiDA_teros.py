@@ -187,6 +187,13 @@ class AiiDATEROSWorkChain(WorkChain):
             default=lambda: Float(15), 
             help='Vacuum spacing in Angstroms.'
         )
+
+        spec.input(
+            'limit_number_of_terminations', 
+            valid_type=Int, 
+            required=False,
+            help='Limit the number of generated terminations to this value.'
+        )
         
         # Phase diagram settings
         spec.input(
@@ -200,11 +207,13 @@ class AiiDATEROSWorkChain(WorkChain):
         spec.input(
             'total_energy_first_element', 
             valid_type=Float, 
+            required=False,
             help='Calculated total energy of the first element.'
         )
         spec.input(
             'total_energy_o2', 
             valid_type=Float, 
+            required=False,
             help='Calculated total energy of the O2 molecule.'
         )
         spec.input(
@@ -375,6 +384,9 @@ class AiiDATEROSWorkChain(WorkChain):
                     return self.exit_codes.ERROR_GENERATE_SLABS_FAILED
 
                 self.ctx.slabs = all_structures
+                if self.inputs.limit_number_of_terminations.value:
+                    self.ctx.slabs = self.ctx.slabs[:self.inputs.limit_number_of_terminations.value]
+
                 self.report(f'Generated {len(all_structures)} slab structures.')
 
             # Assign slabs to dynamic output namespace

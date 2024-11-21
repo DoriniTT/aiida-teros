@@ -1,5 +1,5 @@
 # Paths and File Names
-module_path: "aiida_teros.examples.ag3o4.AiiDA_teros"
+module_path: "aiida_teros.exemples.ag3o4.AiiDA_teros"
 bulk_structure_path: "ag3o4.vasp"
 bulk_metal_structure_path: "ag.vasp"
 potential_family: "PBE"  # Example: 'PBE', 'GGA', etc.
@@ -108,5 +108,7 @@ computer_options:
 
 # Slab Generation Parameters
 slab_parameters:
-  miller_indices: [1, 1, 0]  # Example: [1, 1, 0]
+  miller_indices: [1, 0, 0]  # Example: [1, 1, 0]
   min_slab_thickness: 10.0  # Minimum slab thickness in Å
+  # Maximum number of terminations to generate
+  limit_number_of_terminations: 3 #* Comment this line if you want to generate all possible terminations
