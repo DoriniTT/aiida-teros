@@ -1,0 +1,25 @@
+COMPND    Ag4 O2
+COMPND   1Created by VESTA
+HETATM    1 Ag1                  1.188   1.188   3.565  1.00  0.00          Ag
+HETATM    2 Ag2                  3.565   1.188   1.188  1.00  0.00          Ag
+HETATM    3 Ag3                  1.188   3.565   1.188  1.00  0.00          Ag
+HETATM    4 Ag4                  3.565   3.565   3.565  1.00  0.00          Ag
+HETATM    5 O1                   0.000   0.000   0.000  1.00  0.00           O
+HETATM    6 O1                   0.000   0.000   4.754  1.00  0.00           O
+HETATM    7 O1                   0.000   4.754   0.000  1.00  0.00           O
+HETATM    8 O1                   0.000   4.754   4.754  1.00  0.00           O
+HETATM    9 O1                   4.754   0.000   0.000  1.00  0.00           O
+HETATM   10 O1                   4.754   0.000   4.754  1.00  0.00           O
+HETATM   11 O1                   4.754   4.754   0.000  1.00  0.00           O
+HETATM   12 O1                   4.754   4.754   4.754  1.00  0.00           O
+HETATM   13 O2                   2.377   2.377   2.377  1.00  0.00           O
+CONECT    1   13    6
+CONECT    2    9   13
+CONECT    3   13    7
+CONECT    4   13   12
+CONECT    6    1
+CONECT    7    3
+CONECT    9    2
+CONECT   12    4
+CONECT   13    1    2    4    3
+END

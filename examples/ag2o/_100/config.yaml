@@ -1,4 +1,5 @@
 # Paths and File Names
+module_path: "aiida_teros.examples.ag2o._100.AiiDA_teros"
 bulk_structure_path: "ag2o.vasp"
 bulk_metal_structure_path: "ag.vasp"
 potential_family: "PBE"  # Example: 'PBE', 'GGA', etc.
@@ -8,13 +9,9 @@ code_label: "VASPVTST-6.4.1@bohr-vtst"
 # Thermodynamic Parameters
 thermodynamic_parameters:
   hf_bulk: -1.884  # Heat of formation for bulk. Must be in eV per formula unit.
-# Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
-total_energies:
-  total_energy_first_element: -2.8289  # Energy of the first element (e.g., Ag)
-  total_energy_o2: -9.82  # Energy for O2 molecule
 
 # OPTIONAL: Give the path of specific terminations that you want to study.
-
+# Uncomment the following lines
 #terminations:
 #  slab1: "termination1.vasp"
 
@@ -23,9 +20,9 @@ incar_parameters_bulk:
   incar:
     ISMEAR: 0
     SIGMA: 0.01
-    ENCUT: 550
+    ENCUT: 500
     NCORE: 2
-    ISPIN: 1
+    ISPIN: 2
     ISIF: 3
     IBRION: 2
     NSW: 100
@@ -35,17 +32,14 @@ incar_parameters_bulk:
     NELM: 60
     NELMIN: 6
     EDIFF: 1e-5
-    LWAVE: true
-    LORBIT: 11
-    IVDW: 12
 
 incar_parameters_bulk_metal:
   incar:
     ISMEAR: 0
     SIGMA: 0.01
-    ENCUT: 550
+    ENCUT: 500
     NCORE: 2
-    ISPIN: 1
+    ISPIN: 2
     ISIF: 3
     IBRION: 2
     NSW: 100
@@ -55,30 +49,24 @@ incar_parameters_bulk_metal:
     NELM: 60
     NELMIN: 6
     EDIFF: 1e-5
-    LWAVE: true
-    LORBIT: 11
-    IVDW: 12
 
 # INCAR Parameters for Slab Relaxations
 incar_parameters_slab:
   incar:
     ISMEAR: 0
     SIGMA: 0.01
-    ENCUT: 550
+    ENCUT: 500
     NCORE: 2
-    ISPIN: 1
+    ISPIN: 2
     ISIF: 2
     IBRION: 2
     NSW: 1000
-    EDIFFG: -0.05
+    EDIFFG: -0.01
     LREAL: "Auto"
     PREC: "Accurate"
     NELM: 60
     NELMIN: 6
     EDIFF: 1e-5
-    LWAVE: true
-    LORBIT: 11
-    IVDW: 12
 
 # Workflow Settings
 workflow_settings:
@@ -88,7 +76,6 @@ workflow_settings:
 potential_mapping:
   Ag: "Ag"
   O: "O"
-  P: "P"
 
 # Parser Settings
 parser_settings:
@@ -107,5 +94,5 @@ computer_options:
 
 # Slab Generation Parameters
 slab_parameters:
-  miller_indices: [1, 1, 0]  # Example: [1, 1, 0]
-  min_slab_thickness: 10.0  # Minimum slab thickness in Å
+  miller_indices: [1, 0, 0]  # Example: [1, 1, 0]
+  min_slab_thickness: 15.0  # Minimum slab thickness in Å

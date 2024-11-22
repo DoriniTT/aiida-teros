@@ -1,0 +1,55 @@
+COMPND    Ag4 O2
+COMPND   1Created by VESTA
+HETATM    1 Ag1                  0.000   1.681   3.565  1.00  0.00          Ag
+HETATM    2 Ag1                  6.723   1.681   3.565  1.00  0.00          Ag
+HETATM    3 Ag1                  3.362   5.042   3.565  1.00  0.00          Ag
+HETATM    4 Ag2                  1.681   3.362   1.188  1.00  0.00          Ag
+HETATM    5 Ag2                  5.042   0.000   1.188  1.00  0.00          Ag
+HETATM    6 Ag2                  5.042   6.723   1.188  1.00  0.00          Ag
+HETATM    7 Ag3                  5.042   3.362   1.188  1.00  0.00          Ag
+HETATM    8 Ag3                  1.681   0.000   1.188  1.00  0.00          Ag
+HETATM    9 Ag3                  1.681   6.723   1.188  1.00  0.00          Ag
+HETATM   10 Ag4                  0.000   5.042   3.565  1.00  0.00          Ag
+HETATM   11 Ag4                  6.723   5.042   3.565  1.00  0.00          Ag
+HETATM   12 Ag4                  3.362   1.681   3.565  1.00  0.00          Ag
+HETATM   13 O1                   0.000   0.000   0.000  1.00  0.00           O
+HETATM   14 O1                   0.000   0.000   4.754  1.00  0.00           O
+HETATM   15 O1                   0.000   6.723   0.000  1.00  0.00           O
+HETATM   16 O1                   0.000   6.723   4.754  1.00  0.00           O
+HETATM   17 O1                   6.723   0.000   0.000  1.00  0.00           O
+HETATM   18 O1                   6.723   0.000   4.754  1.00  0.00           O
+HETATM   19 O1                   6.723   6.723   0.000  1.00  0.00           O
+HETATM   20 O1                   6.723   6.723   4.754  1.00  0.00           O
+HETATM   21 O1                   3.362   3.362   0.000  1.00  0.00           O
+HETATM   22 O1                   3.362   3.362   4.754  1.00  0.00           O
+HETATM   23 O2                   0.000   3.362   2.377  1.00  0.00           O
+HETATM   24 O2                   6.723   3.362   2.377  1.00  0.00           O
+HETATM   25 O2                   3.362   0.000   2.377  1.00  0.00           O
+HETATM   26 O2                   3.362   6.723   2.377  1.00  0.00           O
+CONECT    1   23   14
+CONECT    2   24   18
+CONECT    3   22   26
+CONECT    4   23   21
+CONECT    5   17   25
+CONECT    6   26   19
+CONECT    7   24   21
+CONECT    8   25   13
+CONECT    9   15   26
+CONECT   10   23   16
+CONECT   11   24   20
+CONECT   12   22   25
+CONECT   13    8
+CONECT   14    1
+CONECT   15    9
+CONECT   16   10
+CONECT   17    5
+CONECT   18    2
+CONECT   19    6
+CONECT   20   11
+CONECT   21    4    7
+CONECT   22    3   12
+CONECT   23    1    4   10
+CONECT   24    2   11    7
+CONECT   25    5   12    8
+CONECT   26    6    3    9
+END

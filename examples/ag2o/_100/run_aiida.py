@@ -13,6 +13,7 @@ Usage:
 """
 
 import os, sys, time, yaml
+import importlib
 from ase.io import read
 from aiida.engine import submit
 from aiida import load_profile
@@ -24,8 +25,6 @@ from aiida.orm import (
     Str,
     List
 )
-from aiida_teros.exemples.ag2o.AiiDA_teros import AiiDATEROSWorkChain
-
 # ================================================
 # Configuration Section
 # ================================================
@@ -50,14 +49,19 @@ def load_config(config_file):
 # Load configuration
 config = load_config(CONFIG_FILE)
 
+# Retrieve the module path from the configuration dictionary
+module_path = config['module_path']
+# Import the module dynamically using the module path
+module = importlib.import_module(module_path)
+# Get the AiiDATEROSWorkChain class from the imported module
+AiiDATEROSWorkChain = getattr(module, "AiiDATEROSWorkChain")
+
 # Extract configuration parameters
 BULK_STRUCTURE_PATH = config['bulk_structure_path']
 BULK_METAL_STRUCTURE_PATH = config['bulk_metal_structure_path']
 POTENTIAL_FAMILY = config['potential_family']
 CODE_LABEL = config['code_label']
 HF_BULK = config['thermodynamic_parameters']['hf_bulk']
-TOTAL_ENERGY_FIRST_ELEMENT = config['total_energies']['total_energy_first_element']
-TOTAL_ENERGY_O2 = config['total_energies']['total_energy_o2']
 INCAR_PARAMETERS_BULK = config['incar_parameters_bulk']
 INCAR_PARAMETERS_BULK_METAL = config['incar_parameters_bulk_metal']
 INCAR_PARAMETERS_SLAB = config['incar_parameters_slab']
@@ -208,8 +212,6 @@ def main():
         'miller_indices': List(list=SLAB_PARAMETERS['miller_indices']),
         'min_slab_thickness': Float(SLAB_PARAMETERS['min_slab_thickness']),
         'HF_bulk': Float(HF_BULK),
-        'total_energy_first_element': Float(TOTAL_ENERGY_FIRST_ELEMENT),
-        'total_energy_o2': Float(TOTAL_ENERGY_O2),
     }
 
     # Add terminations if they exist

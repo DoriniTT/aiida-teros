@@ -56,8 +56,6 @@ class AiiDATEROSWorkChain(WorkChain):
             - min_slab_thickness (Float): Minimum slab thickness in Angstroms.
             - vacuum (Float): Vacuum spacing in Angstroms.
             - precision_phase_diagram (Int): Precision for the phase diagram.
-            - total_energy_first_element (Float): Calculated total energy of the first element.
-            - total_energy_o2 (Float): Calculated total energy of the O2 molecule.
             - HF_bulk (Float): Heat of formation of the bulk material.
             - path_to_graphs (Str): Path to store the graphs.
         Outline:
@@ -195,18 +193,7 @@ class AiiDATEROSWorkChain(WorkChain):
             default=lambda: Int(500), 
             help='Precision for the phase diagram.'
         )
-        
-        # Energy and formation enthalpy
-        spec.input(
-            'total_energy_first_element', 
-            valid_type=Float, 
-            help='Calculated total energy of the first element.'
-        )
-        spec.input(
-            'total_energy_o2', 
-            valid_type=Float, 
-            help='Calculated total energy of the O2 molecule.'
-        )
+        # Formation enthalpy
         spec.input(
             'HF_bulk', 
             valid_type=Float, 

@@ -1,0 +1,98 @@
+# Paths and File Names
+module_path: "aiida_teros.examples.ag2o._110.AiiDA_teros"
+bulk_structure_path: "ag2o.vasp"
+bulk_metal_structure_path: "ag.vasp"
+potential_family: "PBE"  # Example: 'PBE', 'GGA', etc.
+code_label: "VASPVTST-6.4.1@bohr-vtst"
+# code_label: "VASP-6.4.1@cluster02"
+
+# Thermodynamic Parameters
+thermodynamic_parameters:
+  hf_bulk: -1.884  # Heat of formation for bulk. Must be in eV per formula unit.
+
+# OPTIONAL: Give the path of specific terminations that you want to study.
+# Uncomment the following lines
+#terminations:
+#  slab1: "termination1.vasp"
+
+# INCAR Parameters for Bulk Relaxations
+incar_parameters_bulk:
+  incar:
+    ISMEAR: 0
+    SIGMA: 0.01
+    ENCUT: 500
+    NCORE: 2
+    ISPIN: 2
+    ISIF: 3
+    IBRION: 2
+    NSW: 100
+    EDIFFG: -0.01
+    LREAL: "Auto"
+    PREC: "Accurate"
+    NELM: 60
+    NELMIN: 6
+    EDIFF: 1e-5
+
+incar_parameters_bulk_metal:
+  incar:
+    ISMEAR: 0
+    SIGMA: 0.01
+    ENCUT: 500
+    NCORE: 2
+    ISPIN: 2
+    ISIF: 3
+    IBRION: 2
+    NSW: 100
+    EDIFFG: -0.01
+    LREAL: "Auto"
+    PREC: "Accurate"
+    NELM: 60
+    NELMIN: 6
+    EDIFF: 1e-5
+
+# INCAR Parameters for Slab Relaxations
+incar_parameters_slab:
+  incar:
+    ISMEAR: 0
+    SIGMA: 0.01
+    ENCUT: 500
+    NCORE: 2
+    ISPIN: 2
+    ISIF: 2
+    IBRION: 2
+    NSW: 1000
+    EDIFFG: -0.01
+    LREAL: "Auto"
+    PREC: "Accurate"
+    NELM: 60
+    NELMIN: 6
+    EDIFF: 1e-5
+
+# Workflow Settings
+workflow_settings:
+  kpoints_precision: 0.3  # K-points mesh density
+
+# Potential Mapping
+potential_mapping:
+  Ag: "Ag"
+  O: "O"
+
+# Parser Settings
+parser_settings:
+  parser_settings:
+    add_energies: true
+    add_trajectory: true
+    add_forces: true
+    add_structure: true
+
+# Computer Options
+computer_options:
+  resources:
+    num_machines: 1
+    num_cores_per_machine: 40
+  queue_name: "par40"
+
+# Slab Generation Parameters
+slab_parameters:
+  miller_indices: [1, 1, 0]  # Example: [1, 1, 0]
+  min_slab_thickness: 15.0  # Minimum slab thickness in Å
