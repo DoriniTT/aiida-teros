@@ -111,4 +111,4 @@ slab_parameters:
   miller_indices: [1, 0, 0]  # Example: [1, 1, 0]
   min_slab_thickness: 10.0  # Minimum slab thickness in Å
   # Maximum number of terminations to generate
-  limit_number_of_terminations: 3 #* Comment this line if you want to generate all possible terminations
+  limit_number_of_terminations: 5 #* Comment this line if you want to generate all possible terminations
