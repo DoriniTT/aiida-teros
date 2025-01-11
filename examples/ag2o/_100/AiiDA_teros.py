@@ -580,7 +580,6 @@ class AiiDATEROSWorkChain(WorkChain):
                 E_slab,
                 N_element_slab,
                 N_O_slab,
-                A
             ])
 
         self.report(f'Calculated surface Gibbs free energy for termination {i+1}.')
@@ -591,76 +590,78 @@ class AiiDATEROSWorkChain(WorkChain):
         # Define headers for the LaTeX table
         headers = [
             "Termination",
-            "$E_{slab}$ (eV)",
-            "$N_{element}$",
-            "$N_O$",
-            "$A$ (\AA$^2$)"
-        ]
-
+            "$E_{\\mathrm{slab}}$ (eV)",
+            "$N_{\\mathrm{metal}}$",
+            "$N_\\mathrm{O}$",
+        ] 
+        
         # Generate the LaTeX table using tabulate
-        table_latex = tabulate(termination_data, headers=headers, tablefmt="latex")
-
+        table_latex = tabulate(termination_data, headers=headers, tablefmt="latex_raw")
+        
         # Save the LaTeX table to a file
+        os.makedirs(f'{self.inputs.path_to_graphs.value}/thermo_results/binary', exist_ok=True)
         with open(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/termination_parameters_table.tex', 'w') as f:
-            f.write(r"\documentclass{article}\n")
-            f.write(r"\usepackage{amsmath}\n")
-            f.write(r"\usepackage{geometry}\n")
-            f.write(r"\geometry{a4paper, margin=1in}\n")
-            f.write(r"\begin{document}\n")
-            f.write(r"\section*{Termination Parameters Table}\n")
+            f.write("\\documentclass{article}\n")
+            f.write("\\usepackage{amsmath}\n")
+            f.write("\\usepackage{geometry}\n")
+            f.write("\\geometry{a4paper, margin=1in}\n")
+            f.write("\\begin{document}\n")
+            f.write("\\section*{Termination Parameters}\n")
             f.write(table_latex)
-            f.write(r"\end{document}\n")
+            f.write("\n")
+            f.write("\\end{document}\n")
 
         self.report('Generated LaTeX table with termination parameters.')
-
+    
     def plot_gammas_binary(self):
         """
         Plot surface energies as a function of oxygen chemical potential for different terminations.
         All data is defined within the function and saves the plot automatically.
         """
         # Define the data inside the function
-
         gammas = self.ctx.gammas_binary
         mu_O_values = self.ctx.mu_O_values
 
         # Plot settings
-        title = "Surface Energy vs O Chemical Potential"
         figsize = (10, 6)
+        line_width = 2.5
+        marker_size = 8
 
         # Create figure and axis
         fig, ax = plt.subplots(figsize=figsize)
 
         # Create color cycle for different terminations
-        colors = plt.cm.tab10(np.linspace(0, 1, len(gammas)))
+        colors = plt.cm.get_cmap('tab10', len(gammas))
 
         # Plot lines for each termination
-        for (term_name, term_data), color in zip(gammas.items(), colors):
+        for n, ((term_name, term_data), color) in enumerate(zip(gammas.items(), colors.colors), start=1):
             # Create points for the line
             x_points = mu_O_values
             y_points = [term_data['gamma_lower'], term_data['gamma_upper']]
-
-            # Plot the line
-            ax.plot(x_points, y_points, '-', label=term_name, color=color, linewidth=2)
-
-            # Add points to show exact values
-            ax.plot(x_points, y_points, 'o', color=color, markersize=6)
+            # Plot the line with markers
+            ax.plot(x_points, y_points, '-', label=f'ST-A{str(n)}', color=color, linewidth=line_width)
+            ax.plot(x_points, y_points, 'o', color=color, markersize=marker_size, markeredgecolor='black', alpha=0.8)
 
         # Customize the plot
-        ax.set_xlabel('O Chemical Potential (eV)', fontsize=12)
-        ax.set_ylabel('Surface Energy (J/m²)', fontsize=12)
-        ax.set_title(title, fontsize=14, pad=15)
+        ax.set_xlabel(r'$\mu_O$ (eV)', fontsize=18)
+        ax.set_ylabel(r'$\gamma$ (J/m²)', fontsize=18)
 
-        # Add grid
-        ax.grid(True, linestyle='--', alpha=0.7)
+        # Ticks settings for better readability
+        ax.tick_params(axis='both', which='major', labelsize=16, length=6, width=1.5)
+        ax.tick_params(axis='both', which='minor', length=4, width=1.2)
 
-        # Add legend
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        # Add grid for easier data interpretation
+        ax.grid(True, linestyle='--', alpha=0.6, linewidth=1)
 
-        # Adjust layout to prevent cutting off the legend
+        # Add legend outside the plot area
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=16, title='Terminations', title_fontsize=16)
+
+        # Adjust layout to prevent cutting off the legend and labels
         plt.tight_layout()
 
         # Save the figure
-        plt.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/surface_energy_plot.pdf', bbox_inches='tight', dpi=300)
+        plt.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/surface_energy_plot.pdf', 
+                    bbox_inches='tight', dpi=200)
 
     def result_ternary(self):
 
