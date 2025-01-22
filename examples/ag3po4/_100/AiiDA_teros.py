@@ -9,6 +9,7 @@ from aiida.engine import if_, while_, return_
 from aiida.engine import calcfunction
 from aiida.common.extendeddicts import AttributeDict
 from ase.io import read
+from ase.build import molecule
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.surface import SlabGenerator
 from pymatgen.io.vasp.outputs import Outcar
@@ -211,13 +212,13 @@ class AiiDATEROSWorkChain(WorkChain):
         spec.outline(
             cls.run_relax_bulk,            # Step 1: Relax bulk structure
             cls.inspect_relax_bulk,        # Step 2: Inspect bulk relaxation results
+            cls.run_relax_bulk_metal,      # Step 1: Relax bulk structure for the pure metal
+            cls.inspect_relax_bulk_metal,  # Step 2: Inspect bulk relaxation results for the pure metal
             cls.generate_slabs,            # Step 3: Generate slabs from relaxed bulk
             cls.run_relax_all_slabs,       # Step 4: Relax all generated slabs
             cls.inspect_relax_all_slabs,   # Step 5: Inspect relaxation results
 
             if_(cls.is_binary)(
-            cls.run_relax_bulk_metal,            # Step 1: Relax bulk structure
-            cls.inspect_relax_bulk_metal,        # Step 2: Inspect bulk relaxation results
             cls.result_binary,         # Step 6: Create a dictionary with the results
             cls.plot_gammas_binary,    # Step 7: Plot gamma vs delta_o with temperature
             ).else_(
@@ -314,6 +315,47 @@ class AiiDATEROSWorkChain(WorkChain):
         # Expose bulk relaxation outputs
         self.out_many(self.exposed_outputs(self.ctx.relax_bulk, VaspWorkflow, namespace='bulk'))
         self.report('Bulk relaxation completed successfully.')
+
+    def run_relax_bulk_metal(self):
+        """
+        Run a VASP relaxation of the bulk structure.
+        """
+        self.report('Running relaxation of the bulk structure.')
+
+        try:
+            # Get INCAR parameters for bulk relaxation
+            incar_bulk = self.inputs.incar_parameters_bulk_metal
+
+            # Get the VASP builder with bulk INCAR parameters
+            builder = self.get_vasp_builder(
+                structure=self.inputs.bulk_metal,
+                incar_parameters=incar_bulk,
+                kpoint_density=self.inputs.kpoints_precision.value,
+                label='relax_bulk_metal_structure',
+                description='Bulk relaxation of the metal'
+            )
+
+            # Submit the bulk relaxation calculation
+            future = self.submit(builder)
+            #future = load_node(139563)
+            self.report(f'Submitted VASP relaxation for bulk structure with PK {future.pk}')
+            return ToContext(relax_bulk_metal=future)
+
+        except Exception as e:
+            self.report(f'Failed to submit bulk metal relaxation: {e}')
+            return self.exit_codes.ERROR_RELAX_BULK_FAILED
+
+    def inspect_relax_bulk_metal(self):
+        """
+        Inspect the result of the bulk relaxation.
+        """
+        if not self.ctx.relax_bulk_metal.is_finished_ok:
+            self.report(f'Relaxation of bulk metal failed with exit status {self.ctx.relax_bulk_metal.exit_status}')
+            return self.exit_codes.ERROR_RELAX_BULK_FAILED
+
+        # Expose bulk relaxation outputs
+        self.out_many(self.exposed_outputs(self.ctx.relax_bulk_metal, VaspWorkflow, namespace='bulk_metal1'))
+        self.report('Metal bulk relaxation completed successfully.')
 
     def generate_slabs(self):
         """
@@ -437,46 +479,6 @@ class AiiDATEROSWorkChain(WorkChain):
 
             self.report(f'Relaxation for slab_{n} completed successfully.')
 
-    def run_relax_bulk_metal(self):
-        """
-        Run a VASP relaxation of the bulk structure.
-        """
-        self.report('Running relaxation of the bulk structure.')
-
-        try:
-            # Get INCAR parameters for bulk relaxation
-            incar_bulk = self.inputs.incar_parameters_bulk_metal
-
-            # Get the VASP builder with bulk INCAR parameters
-            builder = self.get_vasp_builder(
-                structure=self.inputs.bulk_metal,
-                incar_parameters=incar_bulk,
-                kpoint_density=self.inputs.kpoints_precision.value,
-                label='relax_bulk_metal_structure',
-                description='Bulk relaxation of the metal'
-            )
-
-            # Submit the bulk relaxation calculation
-            future = self.submit(builder)
-            #future = load_node(139563)
-            self.report(f'Submitted VASP relaxation for bulk structure with PK {future.pk}')
-            return ToContext(relax_bulk_metal=future)
-
-        except Exception as e:
-            self.report(f'Failed to submit bulk metal relaxation: {e}')
-            return self.exit_codes.ERROR_RELAX_BULK_FAILED
-
-    def inspect_relax_bulk_metal(self):
-        """
-        Inspect the result of the bulk relaxation.
-        """
-        if not self.ctx.relax_bulk_metal.is_finished_ok:
-            self.report(f'Relaxation of bulk metal failed with exit status {self.ctx.relax_bulk_metal.exit_status}')
-            return self.exit_codes.ERROR_RELAX_BULK_FAILED
-
-        # Expose bulk relaxation outputs
-        self.out_many(self.exposed_outputs(self.ctx.relax_bulk_metal, VaspWorkflow, namespace='bulk_metal1'))
-        self.report('Metal bulk relaxation completed successfully.')
 
     def result_binary(self):
         """
@@ -664,6 +666,55 @@ class AiiDATEROSWorkChain(WorkChain):
         plt.savefig(f'{self.inputs.path_to_graphs.value}/thermo_results/binary/surface_energy_plot.pdf', 
                     bbox_inches='tight', dpi=200)
 
+    def run_relax_o2(self):
+        """
+        Create an O2 molecule with ASE in a box and run a VASP relaxation.
+        """
+        self.report('Running relaxation of the O2 molecule.')
+
+        try:
+            # Create an O2 molecule using ASE
+            o2_molecule = molecule('O2')
+            o2_molecule.set_cell([13, 14, 15])
+            o2_molecule.center()  # Center the molecule in the cell
+            structure = StructureData(ase=o2_molecule)
+
+            # Define default INCAR parameters for O2 relaxation
+            incar_o2 = {'incar': {
+                'ISMEAR': 0,
+                'SIGMA': 0.05,
+                'EDIFF': 1E-6,
+                'ISYM': 0,
+                'ISPIN': 2,
+                'NSW': 1000,
+                'POTIM': 0.5,
+                'EDIFFG': -0.01,
+                'ENCUT': 550,
+                'PREC': 'Accurate',
+                'NELM': 100,
+                'ALGO': 'Fast',
+                'LREAL': False,
+             }}
+
+            # Get the VASP builder with O2 INCAR parameters
+            builder = self.get_vasp_builder(
+                structure=structure,
+                incar_parameters=incar_o2,
+                kpoint_density=self.inputs.kpoints_precision.value,
+                label='relax_o2_molecule',
+                description='Relaxation of the O2 molecule',
+                slab=True #we treat the molecule as a slab
+            )
+
+            # Submit the O2 relaxation calculation
+            future = self.submit(builder)
+            self.report(f'Submitted VASP relaxation for O2 molecule with PK {future.pk}')
+            return ToContext(relax_o2=future)
+
+        except Exception as e:
+            self.report(f'Failed to submit O2 relaxation: {e}')
+            return self.exit_codes.ERROR_RELAX_O2_FAILED
+
     def result_ternary(self):
 
         os.makedirs(f'{self.inputs.path_to_graphs.value}/thermo_results/ternary', exist_ok=True)
@@ -673,8 +724,10 @@ class AiiDATEROSWorkChain(WorkChain):
         for n, calc in enumerate(self.ctx.relax_calcs, start=1):
 
             #energy_ag = -2.8289*ureg.eV
-            energy_ag = self.inputs.total_energy_first_element.value * ureg.eV
-            energy_o2 = self.inputs.total_energy_o2.value * ureg.eV
+            #energy_ag = self.inputs.total_energy_first_element.value * ureg.eV
+            energy_ag = self.ctx.relax_bulk_metal.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
+            energy_o2 = self.ctx.relax_o2.outputs.misc.get_dict()['total_energies']['energy_extrapolated']
+            #energy_o2 = self.inputs.total_energy_o2.value * ureg.eV
             #energy_o2 = -9.82*ureg.eV
             logP_P0 = 1
             kB = 1.38064852e-23*ureg["J/K"] # Boltzmann's constant
