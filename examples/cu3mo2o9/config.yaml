@@ -1,0 +1,90 @@
+# Paths and File Names
+bulk_structure_path: "/home/thiagotd/git/aiida_teros/example/cu3mo2o9/cu3mo2o9.vasp"
+potential_family: "PBE"  # Example: 'PBE', 'GGA', etc.
+code_label: "VASPVTST-6.4.1@bohr-vtst"
+# code_label: "VASP-6.4.1@cluster02"
+
+# Thermodynamic Parameters
+thermodynamic_parameters:
+  hf_bulk: -20.65  # Heat of formation for bulk. Must be in eV per formula unit.
+# Total Energies (ONLY NECESSARY FOR TERNARY OXIDES)
+total_energies:
+  total_energy_first_element: -3.9  # Energy of the first element (e.g., Ag)
+  total_energy_o2: -9.82  # Energy for O2 molecule
+
+# OPTIONAL: Give the path of specific terminations that you want to study.
+
+#terminations:   # Uncomment this line as well to use terminations
+#  slab1: "termination1.vasp"
+
+# INCAR Parameters for Bulk Relaxations
+incar_parameters_bulk:
+  incar:
+    ISMEAR: 0
+    SIGMA: 0.01
+    ENCUT: 550
+    NCORE: 2
+    ISPIN: 1
+    ISIF: 3
+    IBRION: 2
+    NSW: 100
+    EDIFFG: -0.01
+    LREAL: "Auto"
+    PREC: "Accurate"
+    NELM: 60
+    NELMIN: 6
+    EDIFF: 1e-5
+    LWAVE: true
+    LORBIT: 11
+    IVDW: 12
+
+# INCAR Parameters for Slab Relaxations
+incar_parameters_slab:
+  incar:
+    ISMEAR: 0
+    SIGMA: 0.01
+    ENCUT: 550
+    NCORE: 2
+    ISPIN: 1
+    ISIF: 2
+    IBRION: 2
+    NSW: 1000
+    EDIFFG: -0.05
+    LREAL: "Auto"
+    PREC: "Accurate"
+    NELM: 60
+    NELMIN: 6
+    EDIFF: 1e-5
+    LWAVE: true
+    LORBIT: 11
+    IVDW: 12
+
+# Workflow Settings
+workflow_settings:
+  kpoints_precision: 0.3  # K-points mesh density
+
+# Potential Mapping
+potential_mapping:
+  Mo: "Mo"
+  O: "O"
+  Cu: "Cu"
+
+# Parser Settings
+parser_settings:
+  parser_settings:
+    add_energies: true
+    add_trajectory: true
+    add_forces: true
+    add_structure: true
+
+# Computer Options
+computer_options:
+  resources:
+    num_machines: 1
+    num_cores_per_machine: 40
+  queue_name: "par40"
+
+# Slab Generation Parameters
+slab_parameters:
+  miller_indices: [1, 0, 0]  # Example: [1, 1, 0]
+  min_slab_thickness: 10.0  # Minimum slab thickness in Å
