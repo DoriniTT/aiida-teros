@@ -930,8 +930,8 @@ class AiiDATEROSWorkChain(WorkChain):
             print(f'{structure_name} possess a gamma of {str(info_structure["gamma_delta_o"][0])} at delta_mu_o = 0')
 
             # Plot the lines
-            line, = ax1.plot(delta_mu, info_structure['gamma_delta_o'], label=f'ST-A{str(n)}', linewidth=2.5, color=colors[(n - 1) % len(colors)])
-            labels.append(f'ST-A{str(n)}')
+            line, = ax1.plot(delta_mu, info_structure['gamma_delta_o'], label=f'ST-B{str(n)}', linewidth=2.5, color=colors[(n - 1) % len(colors)])
+            labels.append(f'ST-B{str(n)}')
             lines.append(line)
 
         # Set axis limits based on min and max values

@@ -64,6 +64,7 @@ CODE_LABEL = config['code_label']
 HF_BULK = config['thermodynamic_parameters']['hf_bulk']
 INCAR_PARAMETERS_BULK = config['incar_parameters_bulk']
 INCAR_PARAMETERS_BULK_METAL = config['incar_parameters_bulk_metal']
+INCAR_PARAMETERS_O2 = config['incar_parameters_o2']
 INCAR_PARAMETERS_SLAB = config['incar_parameters_slab']
 WORKFLOW_SETTINGS = config['workflow_settings']
 POTENTIAL_MAPPING = config['potential_mapping']
@@ -203,6 +204,7 @@ def main():
         'bulk_metal': bulk_metal_structure,
         'incar_parameters_bulk': INCAR_PARAMETERS_BULK,
         'incar_parameters_bulk_metal': INCAR_PARAMETERS_BULK_METAL,
+        'incar_parameters_o2': INCAR_PARAMETERS_O2,
         'incar_parameters_slab': INCAR_PARAMETERS_SLAB,
         'kpoints_precision': Float(WORKFLOW_SETTINGS['kpoints_precision']),
         'potential_mapping': Dict(dict=POTENTIAL_MAPPING),

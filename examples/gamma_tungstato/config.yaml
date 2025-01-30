@@ -1,6 +1,6 @@
 # Paths and File Names
-module_path: "aiida_teros.examples.ag2o._100.AiiDA_teros"
-bulk_structure_path: "ag2o.vasp"
+module_path: "aiida_teros.examples.gamma_tungstato._110.AiiDA_teros"
+bulk_structure_path: "primitive_gamma_ag2wo4_opt.vasp"
 bulk_metal_structure_path: "ag.vasp"
 potential_family: "PBE"  # Example: 'PBE', 'GGA', etc.
 code_label: "VASPVTST-6.4.1@bohr-vtst"
@@ -8,7 +8,7 @@ code_label: "VASPVTST-6.4.1@bohr-vtst"
 
 # Thermodynamic Parameters
 thermodynamic_parameters:
-  hf_bulk: -1.884  # Heat of formation for bulk. Must be in eV per formula unit.
+  hf_bulk: -21.76  # Heat of formation for bulk. Must be in eV per formula unit.
 
 # OPTIONAL: Give the path of specific terminations that you want to study.
 # Uncomment the following lines
@@ -50,6 +50,23 @@ incar_parameters_bulk_metal:
     NELMIN: 6
     EDIFF: 1e-5
 
+incar_parameters_o2:
+  incar:
+    ISMEAR: 0
+    SIGMA: 0.01
+    ENCUT: 500
+    NCORE: 2
+    ISPIN: 2
+    ISIF: 2
+    IBRION: 2
+    NSW: 1000
+    EDIFFG: -0.01
+    LREAL: "Auto"
+    PREC: "Accurate"
+    NELM: 100
+    NELMIN: 6
+    EDIFF: 1e-6
+
 # INCAR Parameters for Slab Relaxations
 incar_parameters_slab:
   incar:
@@ -75,6 +92,7 @@ workflow_settings:
 # Potential Mapping
 potential_mapping:
   Ag: "Ag"
+  W: "W"
   O: "O"
 
 # Parser Settings
@@ -94,5 +112,5 @@ computer_options:
 
 # Slab Generation Parameters
 slab_parameters:
-  miller_indices: [1, 0, 0]  # Example: [1, 1, 0]
+  miller_indices: [1, 1, 0]  # Example: [1, 1, 0]
   min_slab_thickness: 15.0  # Minimum slab thickness in Å
