@@ -1,12 +1,4 @@
 # Byte-compiled / optimized / DLL files
-inkscape
-new_functions
-git-commit.sh
-ag2moo4  
-ag2moo4_2  
-ag3o4  
-cu3mo2o9  
-gamma_tungstato
 __pycache__/
 *.py[cod]
 *$py.class
@@ -171,3 +163,11 @@ cython_debug/
 
 #new_functions
 #test
+inkscape/
+new_functions/
+git-commit.sh
+ag2moo4  
+ag2moo4_2  
+ag3o4  
+cu3mo2o9  
+gamma_tungstato
