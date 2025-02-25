@@ -24,8 +24,7 @@ Understanding the thermodynamic properties of oxide surfaces is crucial in field
 ### Key Features
 
 - **Automated Surface Generation**: Generate symmetric surface terminations from any bulk structure and crystallographic orientation automatically.
-- **Efficient Relaxation Calculations**: Perform relaxation calculations on bulk structures, O2 molecule, and all generated slabs using VASP with predefined settings, ensuring consistency and accuracy.
-- **Integrated Energy Calculations**: Automatically calculate energies for the bulk metal and O2 molecule as part of the workflow, eliminating the need for separate calculations.
+- **Efficient Relaxation Calculations**: Perform relaxation calculations on all generated slabs using VASP with predefined settings, ensuring consistency and accuracy.
 - **Surface Thermodynamics Analysis**: Compute surface Gibbs free energies and construct surface phase diagrams using _ab initio_ atomistic thermodynamics methods.
 - **Stable Surface Identification**: Automatically identify and output the most thermodynamically stable surface terminations based on comprehensive energy analyses.
 - **Integration with AiiDA**: Utilize AiiDA's powerful data management and workflow automation features to seamlessly track computations and results.
@@ -135,6 +134,11 @@ code_label: "vasp@computer"                       # Label of the VASP code in Ai
 thermodynamic_parameters:
   hf_bulk: -1.884                                 # Heat of formation for bulk in eV
 
+# Total Energies
+total_energies:
+  total_energy_first_element: -2.8289             # Energy of the first element (e.g., Ag)
+  total_energy_o2: -9.82                          # Energy for O2 molecule
+
 # INCAR Parameters for Bulk Relaxations
 incar_parameters_bulk:
   incar:
@@ -147,14 +151,6 @@ incar_parameters_bulk_metal:
   incar:
     ISMEAR: 0
     SIGMA: 0.01
-    # ... other INCAR parameters
-
-# INCAR Parameters for O2 Molecule Relaxation
-incar_parameters_o2:
-  incar:
-    ISMEAR: 0
-    SIGMA: 0.01
-    ISPIN: 2                                     # Spin-polarized calculation for O2
     # ... other INCAR parameters
 
 # INCAR Parameters for Slab Relaxations
@@ -288,10 +284,9 @@ aiida_teros/
 
 The **AiiDA-TEROS** workflow generates several key outputs organized into categories. These outputs include relaxed structures and associated data, essential for further thermodynamic analysis. Below is an overview:
 
-### 1. Initial Relaxations
+### 1. Bulk Relaxation
 
-#### Bulk Structure Relaxation
-Outputs from the relaxation of the bulk oxide structure:
+Outputs from the relaxation of the bulk structure:
 
 - **structure** (`StructureData`): The relaxed bulk structure.
 - **trajectory** (`TrajectoryData`): Contains positions, velocities, and forces over the relaxation steps.
@@ -301,12 +296,6 @@ Outputs from the relaxation of the bulk oxide structure:
 - **misc** (`Dict`): Miscellaneous information related to the relaxation, such as convergence parameters.
 - **remote_folder** (`RemoteData`): Directory where the calculations were performed.
 - **retrieved** (`FolderData`): Retrieved output files from the calculations.
-
-#### Bulk Metal Relaxation
-Similar outputs as the bulk structure relaxation, but for the bulk metal structure.
-
-#### O2 Molecule Relaxation
-Similar outputs as the bulk structure relaxation, but for the O2 molecule. This calculation is particularly important as it provides the reference energy for oxygen used in thermodynamic calculations.
 
 ### 2. Slab Relaxations
 

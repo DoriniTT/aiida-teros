@@ -161,5 +161,17 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-#new_functions
-#test
+# VS Code
+.vscode/
+
+# AiiDA specific
+*.aiida
+*.sqlite
+*.sqlite-journal
+dump*.aiida
+*.aiida.bak*
+pks.txt
+thermo_results/
+
+# Project specific
+config.yaml
